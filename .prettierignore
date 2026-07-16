@@ -1,0 +1,5 @@
+# Prettier ignore file
+node_modules/
+dist/
+*-sbom.cdx.json
+*.cdx.json
