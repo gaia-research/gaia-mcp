@@ -25,6 +25,14 @@ describe("release versioning", () => {
     expect(
       config.packages["."].extraFiles ?? config.packages["."]["extra-files"],
     ).toContainEqual({ type: "generic", path: "src/version.ts" });
+
+    const runtimeVersionSource = await readFile(
+      new URL("../src/version.ts", import.meta.url),
+      "utf8",
+    );
+    expect(runtimeVersionSource).toMatch(
+      /VERSION = "[^"]+"; \/\/ x-release-please-version/u,
+    );
   });
 
   it("records every protocol version exercised by the SDK matrix", async () => {
