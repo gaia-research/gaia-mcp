@@ -29,4 +29,3 @@ jobs:
       - run: npm test
       - if: matrix.node == '24'
         run: npm pack --dry-run
-

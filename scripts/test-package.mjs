@@ -111,9 +111,7 @@ try {
   await client?.close();
   if (fixtureServer) {
     await new Promise((resolveClose, reject) =>
-      fixtureServer.close((error) =>
-        error ? reject(error) : resolveClose(),
-      ),
+      fixtureServer.close((error) => (error ? reject(error) : resolveClose())),
     );
   }
   if (tarballPath) await unlink(tarballPath).catch(() => undefined);

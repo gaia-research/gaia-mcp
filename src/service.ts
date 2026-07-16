@@ -1,3 +1,5 @@
+import { SUPPORTED_PROTOCOL_VERSIONS } from "@modelcontextprotocol/sdk/types.js";
+
 import type { GaiaRegistrySource } from "./data/source.js";
 import {
   GAIA_PUBLIC_CONTRACT_VERSION,
@@ -46,14 +48,55 @@ export class GaiaService {
 
     const snapshot = await this.#source.load();
     const kinds = new Set(input.kinds ?? ["generic", "named"]);
-    const allowedTypes = input.types
-      ? new Set(input.types.map((value) => normalize(value)))
+    const requestedTypes = [...(input.types ?? []), ...(input.tiers ?? [])];
+    const allowedTypes =
+      requestedTypes.length > 0
+        ? new Set(requestedTypes.map((value) => normalize(value)))
+        : undefined;
+    const allowedContributors = input.contributors
+      ? new Set(input.contributors.map((value) => normalize(value)))
       : undefined;
+    const namedSkills = flattenNamed(snapshot);
+    const genericTypes = new Map(
+      snapshot.generic.skills.map((skill) => [skill.id, skill.type]),
+    );
     const scored: ScoredResult[] = [];
 
     if (kinds.has("generic")) {
       for (const skill of snapshot.generic.skills) {
         if (allowedTypes && !allowedTypes.has(normalize(skill.type))) continue;
+        const implementations = namedSkills.filter(
+          (named) => named.genericSkillRef === skill.id,
+        );
+        const installable = implementations.some(isInstallable);
+        const maxTrustMagnitude = Math.max(
+          ...implementations.map((named) => named.trustMagnitude ?? -1),
+        );
+        const maxStars = Math.max(
+          starCount(skill.namedMaxLevel),
+          ...implementations.map((named) => starCount(named.level)),
+        );
+        if (input.minStars !== undefined && maxStars < input.minStars) continue;
+        if (
+          input.minTrustMagnitude !== undefined &&
+          maxTrustMagnitude < input.minTrustMagnitude
+        ) {
+          continue;
+        }
+        if (
+          allowedContributors &&
+          !implementations.some((named) =>
+            allowedContributors.has(normalize(named.contributor)),
+          )
+        ) {
+          continue;
+        }
+        if (
+          input.installable !== undefined &&
+          installable !== input.installable
+        ) {
+          continue;
+        }
         const score = scoreMatch(query, [
           [skill.name, 12],
           [skill.id, 10],
@@ -76,13 +119,44 @@ export class GaiaService {
             ? { overallTrustGrade: skill.overallTrustGrade }
             : {}),
           evidenceCount: skill.evidence.length,
+          installable,
         });
       }
     }
 
     if (kinds.has("named")) {
-      for (const skill of flattenNamed(snapshot)) {
-        if (allowedTypes && skill.type && !allowedTypes.has(normalize(skill.type))) {
+      for (const skill of namedSkills) {
+        const resolvedType =
+          skill.type ?? genericTypes.get(skill.genericSkillRef);
+        if (
+          allowedTypes &&
+          (!resolvedType || !allowedTypes.has(normalize(resolvedType)))
+        ) {
+          continue;
+        }
+        if (
+          allowedContributors &&
+          !allowedContributors.has(normalize(skill.contributor))
+        ) {
+          continue;
+        }
+        if (
+          input.minStars !== undefined &&
+          starCount(skill.level) < input.minStars
+        ) {
+          continue;
+        }
+        if (
+          input.minTrustMagnitude !== undefined &&
+          (skill.trustMagnitude ?? -1) < input.minTrustMagnitude
+        ) {
+          continue;
+        }
+        const installable = isInstallable(skill);
+        if (
+          input.installable !== undefined &&
+          installable !== input.installable
+        ) {
           continue;
         }
         const score = scoreMatch(query, [
@@ -102,9 +176,10 @@ export class GaiaService {
           name: skill.name,
           ...(skill.title ? { title: skill.title } : {}),
           description: skill.description,
-          ...(skill.type ? { type: skill.type } : {}),
+          ...(resolvedType ? { type: resolvedType } : {}),
           status: skill.status,
           genericSkillRef: skill.genericSkillRef,
+          contributor: skill.contributor,
           level: skill.level,
           ...(skill.trustMagnitude === undefined
             ? {}
@@ -113,6 +188,7 @@ export class GaiaService {
             ? { overallTrustGrade: skill.overallTrustGrade }
             : {}),
           evidenceCount: skill.evidence.length,
+          installable,
           ...(typeof skill.links.github === "string"
             ? { sourceUrl: skill.links.github }
             : {}),
@@ -120,7 +196,10 @@ export class GaiaService {
       }
     }
 
-    const limit = Math.min(Math.max(input.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT);
+    const limit = Math.min(
+      Math.max(input.limit ?? DEFAULT_LIMIT, 1),
+      MAX_LIMIT,
+    );
     const results = scored
       .sort(
         (left, right) =>
@@ -194,19 +273,18 @@ export class GaiaService {
   async status(): Promise<StatusResult> {
     const snapshot = await this.#source.load();
     return {
-      serverVersion: this.#serverVersion,
-      mode: "registry",
       counts: {
         genericSkills: snapshot.generic.skills.length,
         namedSkills: flattenNamed(snapshot).length,
       },
       tools: ["gaia_search", "gaia_inspect", "gaia_status"],
       bondedCapabilities: false,
-      compatibility: {
-        mcpSdk: "@modelcontextprotocol/sdk@1.29.0",
-        node: ">=22.14.0",
-        transports: ["stdio"],
-      },
+      missingCapabilities: [
+        "bonded-local-context",
+        "workspace-analysis",
+        "progression-paths",
+        "guarded-actions",
+      ],
       ...this.#metadata(snapshot),
     };
   }
@@ -216,14 +294,43 @@ export class GaiaService {
       Date.parse(snapshot.generic.generatedAt),
       Date.parse(snapshot.named.generatedAt),
     ].filter(Number.isFinite);
-    const oldestGeneratedAt = Math.min(...generatedTimes);
+    const oldestGeneratedAt =
+      generatedTimes.length > 0 ? Math.min(...generatedTimes) : undefined;
+    const now = this.#now().getTime();
     const stale =
       generatedTimes.length !== 2 ||
-      this.#now().getTime() - oldestGeneratedAt > this.#maxDataAgeMs;
+      oldestGeneratedAt === undefined ||
+      now - oldestGeneratedAt > this.#maxDataAgeMs;
+    const dataAgeSeconds =
+      oldestGeneratedAt === undefined
+        ? null
+        : Math.max(0, Math.floor((now - oldestGeneratedAt) / 1_000));
+    const upstreamDeclaresContractVersion = [
+      snapshot.generic.contractVersion ?? snapshot.generic.schemaVersion,
+      snapshot.named.contractVersion ?? snapshot.named.schemaVersion,
+    ].every((version) => version === GAIA_PUBLIC_CONTRACT_VERSION);
+    const warnings: string[] = [];
+    if (!upstreamDeclaresContractVersion) {
+      warnings.push(
+        `Gaia's public projections do not both advertise a contract version. Compatibility is being enforced by the ${GAIA_PUBLIC_CONTRACT_VERSION} shape adapter; verify the source URLs before stateful follow-up work.`,
+      );
+    }
+    if (stale) {
+      warnings.push(
+        dataAgeSeconds === null
+          ? "One or more Gaia projection timestamps are invalid. Regenerate the public projections or restore a valid generatedAt value."
+          : `Gaia projection data is ${dataAgeSeconds} seconds old, beyond the ${Math.floor(this.#maxDataAgeMs / 1_000)}-second freshness window. Check the Gaia build pipeline or retry after regeneration.`,
+      );
+    }
 
     return {
+      serverVersion: this.#serverVersion,
+      mode: "registry",
       contractVersion: GAIA_PUBLIC_CONTRACT_VERSION,
+      supportedContractVersions: [GAIA_PUBLIC_CONTRACT_VERSION],
+      upstreamDeclaresContractVersion,
       freshness: stale ? "stale" : "fresh",
+      dataAgeSeconds,
       genericGeneratedAt: snapshot.generic.generatedAt,
       namedGeneratedAt: snapshot.named.generatedAt,
       fetchedAt: snapshot.source.fetchedAt,
@@ -231,6 +338,15 @@ export class GaiaService {
         generic: snapshot.source.genericUrl,
         named: snapshot.source.namedUrl,
       },
+      compatibility: {
+        mcpSdk: "@modelcontextprotocol/sdk@1.29.0",
+        mcpProtocolVersions: [...SUPPORTED_PROTOCOL_VERSIONS],
+        gaiaPublicData: [GAIA_PUBLIC_CONTRACT_VERSION],
+        gaiaCli: "none",
+        node: ">=22.14.0",
+        transports: ["stdio"],
+      },
+      warnings,
     };
   }
 }
@@ -266,6 +382,22 @@ function normalize(value: string): string {
     .normalize("NFKD")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function starCount(level: string | undefined): number {
+  if (!level) return -1;
+  const match = /^(\d)★/.exec(level);
+  return match?.[1] === undefined ? -1 : Number(match[1]);
+}
+
+function isInstallable(skill: NamedSkill): boolean {
+  if (skill.links.installable === false) return false;
+  return (
+    typeof skill.links.github === "string" &&
+    /(?:\/SKILL\.md(?:$|[?#])|raw\.githubusercontent\.com)/i.test(
+      skill.links.github,
+    )
+  );
 }
 
 function scoreMatch(

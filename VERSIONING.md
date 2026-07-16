@@ -89,6 +89,11 @@ still receives provenance. Immediately afterward, the maintainer configures
 the npm trusted publisher, deletes the GitHub secret, and revokes the token.
 All subsequent releases are tokenless.
 
+`COMPATIBILITY.md` is the version-line source of truth. The release workflow
+appends it to the generated GitHub Release notes before npm publication. A
+release with breaking changes must also include explicit migration notes in its
+Conventional Commit body so Release Please carries them into the changelog.
+
 ## Release gate
 
 A tag is created only after:
@@ -99,6 +104,12 @@ A tag is created only after:
 - compatibility fixtures pass;
 - action releases pass fail-closed and approval tests;
 - documentation names any deprecations or operator steps.
+
+For the first publication, the Gaia Research exact-version consumer test runs
+after npm makes `v0.1.0` installable. It gates website “available” claims,
+legacy-document replacement, and v0.1 milestone closure. If that downstream
+test fails, publish a corrective patch and deprecate the broken npm version when
+appropriate; never publish an untested installation command.
 
 The `v0.1.0` implementation is under review and has no published package or
 release yet. The first public release will be `v0.1.0`.

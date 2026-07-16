@@ -64,4 +64,37 @@ describe("HttpGaiaRegistrySource", () => {
     });
     expect(second).toEqual(first);
   });
+
+  it("rejects an explicitly unsupported contract with remediation", async () => {
+    const source = new HttpGaiaRegistrySource({
+      fetchFn: async () =>
+        new Response(JSON.stringify({ contractVersion: "gaia-public-v2" }), {
+          status: 200,
+        }),
+    });
+
+    await expect(source.load()).rejects.toThrow(
+      /supports gaia-public-v1; install a compatible Gaia MCP version/i,
+    );
+  });
+
+  it("rejects an incomplete generic projection with recovery guidance", async () => {
+    const source = new HttpGaiaRegistrySource({
+      genericUrl: "https://example.test/generic.json",
+      namedUrl: "https://example.test/named.json",
+      fetchFn: async (input) =>
+        new Response(
+          JSON.stringify(
+            String(input).endsWith("named.json")
+              ? { generatedAt: "2026-07-16", buckets: {} }
+              : { generatedAt: "2026-07-16T00:00:00Z", skills: [] },
+          ),
+          { status: 200 },
+        ),
+    });
+
+    await expect(source.load()).rejects.toThrow(
+      /contains no skills.*restore\/regenerate/i,
+    );
+  });
 });

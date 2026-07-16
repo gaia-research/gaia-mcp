@@ -54,6 +54,9 @@ const namedSkillSchema = z
 
 export const genericRegistrySchema = z
   .object({
+    $schema: z.string().optional(),
+    contractVersion: z.string().optional(),
+    schemaVersion: z.string().optional(),
     generatedAt: z.string().min(1),
     skills: z.array(genericSkillSchema),
   })
@@ -61,6 +64,8 @@ export const genericRegistrySchema = z
 
 export const namedRegistrySchema = z
   .object({
+    contractVersion: z.string().optional(),
+    schemaVersion: z.string().optional(),
     generatedAt: z.string().min(1),
     buckets: z.record(z.array(namedSkillSchema)),
   })

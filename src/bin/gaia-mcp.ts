@@ -13,8 +13,7 @@ import { GaiaService } from "../service.js";
 async function main(): Promise<void> {
   const source = new HttpGaiaRegistrySource({
     genericUrl: process.env.GAIA_REGISTRY_URL ?? DEFAULT_GENERIC_REGISTRY_URL,
-    namedUrl:
-      process.env.GAIA_NAMED_SKILLS_URL ?? DEFAULT_NAMED_REGISTRY_URL,
+    namedUrl: process.env.GAIA_NAMED_SKILLS_URL ?? DEFAULT_NAMED_REGISTRY_URL,
   });
   const service = new GaiaService(source);
   const server = createGaiaMcpServer({ service });
@@ -30,7 +29,8 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.stack ?? error.message : String(error);
+  const message =
+    error instanceof Error ? (error.stack ?? error.message) : String(error);
   process.stderr.write(`gaia-mcp failed: ${message}\n`);
   process.exitCode = 1;
 });

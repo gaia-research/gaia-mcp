@@ -47,11 +47,16 @@ export type NamedSkill = {
 };
 
 export type GenericRegistryDocument = {
+  $schema?: string | undefined;
+  contractVersion?: string | undefined;
+  schemaVersion?: string | undefined;
   generatedAt: string;
   skills: GenericSkill[];
 };
 
 export type NamedRegistryDocument = {
+  contractVersion?: string | undefined;
+  schemaVersion?: string | undefined;
   generatedAt: string;
   buckets: Record<string, NamedSkill[]>;
 };
@@ -72,8 +77,13 @@ export type GaiaRegistrySnapshot = GaiaRegistryDocuments & {
 };
 
 export type ResultMetadata = {
+  serverVersion: string;
+  mode: "registry";
   contractVersion: typeof GAIA_PUBLIC_CONTRACT_VERSION;
+  supportedContractVersions: [typeof GAIA_PUBLIC_CONTRACT_VERSION];
+  upstreamDeclaresContractVersion: boolean;
   freshness: "fresh" | "stale";
+  dataAgeSeconds: number | null;
   genericGeneratedAt: string;
   namedGeneratedAt: string;
   fetchedAt: string;
@@ -81,6 +91,17 @@ export type ResultMetadata = {
     generic: string;
     named: string;
   };
+  compatibility: CompatibilityInfo;
+  warnings: string[];
+};
+
+export type CompatibilityInfo = {
+  mcpSdk: "@modelcontextprotocol/sdk@1.29.0";
+  mcpProtocolVersions: string[];
+  gaiaPublicData: [typeof GAIA_PUBLIC_CONTRACT_VERSION];
+  gaiaCli: "none";
+  node: ">=22.14.0";
+  transports: ["stdio"];
 };
 
 export type SearchInput = {
@@ -88,6 +109,11 @@ export type SearchInput = {
   limit?: number | undefined;
   kinds?: Array<"generic" | "named"> | undefined;
   types?: string[] | undefined;
+  tiers?: string[] | undefined;
+  minStars?: number | undefined;
+  minTrustMagnitude?: number | undefined;
+  contributors?: string[] | undefined;
+  installable?: boolean | undefined;
 };
 
 export type SearchResultItem = {
@@ -104,6 +130,8 @@ export type SearchResultItem = {
   overallTrustGrade?: string;
   evidenceCount: number;
   sourceUrl?: string;
+  contributor?: string;
+  installable?: boolean;
 };
 
 export type SearchResult = {
@@ -148,17 +176,16 @@ export type InspectResult = {
 };
 
 export type StatusResult = ResultMetadata & {
-  serverVersion: string;
-  mode: "registry";
   counts: {
     genericSkills: number;
     namedSkills: number;
   };
   tools: ["gaia_search", "gaia_inspect", "gaia_status"];
   bondedCapabilities: false;
-  compatibility: {
-    mcpSdk: "@modelcontextprotocol/sdk@1.29.0";
-    node: ">=22.14.0";
-    transports: ["stdio"];
-  };
+  missingCapabilities: [
+    "bonded-local-context",
+    "workspace-analysis",
+    "progression-paths",
+    "guarded-actions",
+  ];
 };

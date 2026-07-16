@@ -18,6 +18,7 @@
     "dist",
     "README.md",
     "CHANGELOG.md",
+    "COMPATIBILITY.md",
     "ARCHITECTURE.md",
     "ROADMAP.md",
     "VERSIONING.md",
@@ -25,13 +26,15 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "format": "prettier --write \".github/**/*.yml\" \"scripts/**/*.mjs\" \"src/**/*.ts\" \"tests/**/*.ts\" \"*.json\" \"*.ts\"",
+    "format:check": "prettier --check \".github/**/*.yml\" \"scripts/**/*.mjs\" \"src/**/*.ts\" \"tests/**/*.ts\" \"*.json\" \"*.ts\"",
     "typecheck": "tsc --noEmit",
     "pretest": "npm run build --silent",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live": "vitest run --config vitest.live.config.ts",
     "test:package": "npm run build --silent && node scripts/test-package.mjs",
-    "check": "npm run typecheck && npm test && npm run test:package",
+    "check": "npm run format:check && npm run typecheck && npm test && npm run test:package",
     "prepack": "npm run check"
   },
   "repository": {
@@ -64,6 +67,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "prettier": "3.6.2",
     "typescript": "^5.9.0",
     "vitest": "^4.1.10"
   }

@@ -11,19 +11,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["22.14.0", "24"]
     steps:
       - name: Check out repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - name: Set up Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "24"
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: npm run test:live
+      - if: matrix.node == '24'
+        run: npm run test:live
 
-  release-please:
+  release_please:
     needs: validate
     runs-on: ubuntu-latest
     permissions:
@@ -31,15 +36,15 @@ jobs:
       issues: write
       pull-requests: write
     outputs:
-      release-created: ${{ steps.release.outputs.release_created }}
-      tag-name: ${{ steps.release.outputs.tag_name }}
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - id: release
         uses: googleapis/release-please-action@0dfd8538845b8e92600d271a895a5372865d4062 # v5
 
   publish:
-    needs: release-please
-    if: needs.release-please.outputs.release-created == 'true'
+    needs: release_please
+    if: needs.release_please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -49,7 +54,7 @@ jobs:
       - name: Check out the release tag
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          ref: ${{ needs.release-please.outputs.tag-name }}
+          ref: ${{ needs.release_please.outputs.tag_name }}
       - name: Set up Node.js for trusted publishing
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
@@ -62,8 +67,15 @@ jobs:
       - run: npm run check
       - run: npm run test:live
       - run: npm pack --dry-run
+      - name: Add compatibility table to GitHub Release
+        run: |
+          gh release view "${{ needs.release_please.outputs.tag_name }}" --json body --jq .body > release-notes.md
+          node scripts/append-release-notes.mjs release-notes.md COMPATIBILITY.md "$(node -p "require('./package.json').version")"
+          gh release edit "${{ needs.release_please.outputs.tag_name }}" --notes-file release-notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Generate CycloneDX SBOM
-        run: npm sbom --sbom-format cyclonedx > "gaia-mcp-${{ needs.release-please.outputs.tag-name }}-sbom.cdx.json"
+        run: npm sbom --sbom-format cyclonedx > "gaia-mcp-${{ needs.release_please.outputs.tag_name }}-sbom.cdx.json"
       - name: Publish package
         run: npm publish --access public
         env:
@@ -71,6 +83,6 @@ jobs:
           # after the trusted publisher exists; remove this secret afterward.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
       - name: Attach SBOM to GitHub Release
-        run: gh release upload "${{ needs.release-please.outputs.tag-name }}" "gaia-mcp-${{ needs.release-please.outputs.tag-name }}-sbom.cdx.json"
+        run: gh release upload "${{ needs.release_please.outputs.tag_name }}" "gaia-mcp-${{ needs.release_please.outputs.tag_name }}-sbom.cdx.json"
         env:
           GH_TOKEN: ${{ github.token }}

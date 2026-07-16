@@ -47,10 +47,13 @@ const documents: GaiaRegistryDocuments = {
           description: "Executes automated tests and reports failures.",
           catalogRef: "example-health",
           tags: ["automated-testing", "quality"],
-          links: { github: "https://github.com/example/health" },
+          links: {
+            github: "https://github.com/example/health/blob/main/SKILL.md",
+          },
           evidence: [],
           trustMagnitude: 36,
           overallTrustGrade: "C",
+          type: "extra",
         },
       ],
     },
@@ -59,10 +62,9 @@ const documents: GaiaRegistryDocuments = {
 
 describe("GaiaService search", () => {
   it("returns relevant generic and Named Skills with source metadata", async () => {
-    const service = new GaiaService(
-      new InMemoryGaiaRegistrySource(documents),
-      { now: () => new Date("2026-07-16T12:00:00Z") },
-    );
+    const service = new GaiaService(new InMemoryGaiaRegistrySource(documents), {
+      now: () => new Date("2026-07-16T12:00:00Z"),
+    });
 
     const result = await service.search({ query: "automated testing" });
 
@@ -81,5 +83,29 @@ describe("GaiaService search", () => {
       genericGeneratedAt: "2026-07-16T00:00:00Z",
       namedGeneratedAt: "2026-07-16",
     });
+  });
+
+  it("filters by level, Trust Magnitude, contributor, tier, and installability", async () => {
+    const service = new GaiaService(new InMemoryGaiaRegistrySource(documents), {
+      now: () => new Date("2026-07-16T12:00:00Z"),
+    });
+
+    const result = await service.search({
+      query: "health testing",
+      kinds: ["named"],
+      tiers: ["extra"],
+      minStars: 2,
+      minTrustMagnitude: 30,
+      contributors: ["example"],
+      installable: true,
+    });
+
+    expect(result.results).toEqual([
+      expect.objectContaining({
+        id: "example/health",
+        contributor: "example",
+        installable: true,
+      }),
+    ]);
   });
 });

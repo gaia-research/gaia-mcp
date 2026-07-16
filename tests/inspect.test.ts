@@ -54,10 +54,9 @@ const documents: GaiaRegistryDocuments = {
 
 describe("GaiaService inspect", () => {
   it("returns a generic skill dossier and its Named implementations", async () => {
-    const service = new GaiaService(
-      new InMemoryGaiaRegistrySource(documents),
-      { now: () => new Date("2026-07-16T12:00:00Z") },
-    );
+    const service = new GaiaService(new InMemoryGaiaRegistrySource(documents), {
+      now: () => new Date("2026-07-16T12:00:00Z"),
+    });
 
     const result = await service.inspect("automated-testing");
 
@@ -85,10 +84,9 @@ describe("GaiaService inspect", () => {
   });
 
   it("resolves a Named Skill by id and links it to its generic skill", async () => {
-    const service = new GaiaService(
-      new InMemoryGaiaRegistrySource(documents),
-      { now: () => new Date("2026-07-16T12:00:00Z") },
-    );
+    const service = new GaiaService(new InMemoryGaiaRegistrySource(documents), {
+      now: () => new Date("2026-07-16T12:00:00Z"),
+    });
 
     const result = await service.inspect("example/health");
 

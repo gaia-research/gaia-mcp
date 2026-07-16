@@ -2,6 +2,7 @@ import type {
   GaiaRegistryDocuments,
   GaiaRegistrySnapshot,
 } from "../domain/types.js";
+import { GAIA_PUBLIC_CONTRACT_VERSION } from "../domain/types.js";
 import { genericRegistrySchema, namedRegistrySchema } from "./schemas.js";
 
 export const DEFAULT_GENERIC_REGISTRY_URL =
@@ -53,16 +54,23 @@ export class HttpGaiaRegistrySource implements GaiaRegistrySource {
       this.#fetchJson(this.#genericUrl),
       this.#fetchJson(this.#namedUrl),
     ]);
+    assertSupportedContract(genericJson, this.#genericUrl);
+    assertSupportedContract(namedJson, this.#namedUrl);
     const generic = genericRegistrySchema.safeParse(genericJson);
     if (!generic.success) {
       throw new GaiaDataError(
-        `Generic Gaia projection does not match ${"gaia-public-v1"}: ${generic.error.message}`,
+        `Generic Gaia projection at ${this.#genericUrl} is incomplete or incompatible with ${GAIA_PUBLIC_CONTRACT_VERSION}. Restore/regenerate the projection, then retry. Validation: ${generic.error.message}`,
       );
     }
     const named = namedRegistrySchema.safeParse(namedJson);
     if (!named.success) {
       throw new GaiaDataError(
-        `Named Gaia projection does not match ${"gaia-public-v1"}: ${named.error.message}`,
+        `Named Gaia projection at ${this.#namedUrl} is incomplete or incompatible with ${GAIA_PUBLIC_CONTRACT_VERSION}. Restore/regenerate the projection, then retry. Validation: ${named.error.message}`,
+      );
+    }
+    if (generic.data.skills.length === 0) {
+      throw new GaiaDataError(
+        `Generic Gaia projection at ${this.#genericUrl} contains no skills. Restore/regenerate the projection, then retry.`,
       );
     }
 
@@ -130,4 +138,16 @@ export class InMemoryGaiaRegistrySource implements GaiaRegistrySource {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function assertSupportedContract(value: unknown, url: string): void {
+  if (typeof value !== "object" || value === null) return;
+  const document = value as Record<string, unknown>;
+  const advertised = document.contractVersion ?? document.schemaVersion;
+  if (advertised === undefined) return;
+  if (advertised !== GAIA_PUBLIC_CONTRACT_VERSION) {
+    throw new GaiaDataError(
+      `Gaia projection ${url} advertises unsupported contract ${String(advertised)}. This server supports ${GAIA_PUBLIC_CONTRACT_VERSION}; install a compatible Gaia MCP version or restore a supported projection.`,
+    );
+  }
 }

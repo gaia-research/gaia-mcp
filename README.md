@@ -81,6 +81,7 @@ npm pack --dry-run  # publishable artifact contents
 - [Architecture](ARCHITECTURE.md)
 - [Delivery roadmap](ROADMAP.md)
 - [Versioning and releases](VERSIONING.md)
+- [Compatibility](COMPATIBILITY.md)
 - [Changelog](CHANGELOG.md)
 
 ## Cross-repository tracking

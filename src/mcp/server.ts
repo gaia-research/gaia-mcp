@@ -36,10 +36,32 @@ export function createGaiaMcpServer({
       description:
         "Find generic and Named Skills in the public Gaia Registry. Returns ranked structured results with trust and source freshness metadata.",
       inputSchema: z.object({
-        query: z.string().min(1).describe("Task, capability, or skill to find."),
+        query: z
+          .string()
+          .min(1)
+          .describe("Task, capability, or skill to find."),
         limit: z.number().int().min(1).max(20).optional(),
-        kinds: z.array(z.enum(["generic", "named"])).min(1).optional(),
-        types: z.array(z.string().min(1)).min(1).optional(),
+        kinds: z
+          .array(z.enum(["generic", "named"]))
+          .min(1)
+          .optional(),
+        types: z
+          .array(z.string().min(1))
+          .min(1)
+          .optional()
+          .describe(
+            "Skill types to include. Alias of tiers for client compatibility.",
+          ),
+        tiers: z.array(z.string().min(1)).min(1).optional(),
+        minStars: z.number().int().min(0).max(6).optional(),
+        minTrustMagnitude: z.number().min(0).optional(),
+        contributors: z.array(z.string().min(1)).min(1).optional(),
+        installable: z
+          .boolean()
+          .optional()
+          .describe(
+            "Filter by a directly linked, non-blocked SKILL.md source.",
+          ),
       }),
       annotations: readOnlyAnnotations,
     },
@@ -105,9 +127,16 @@ function toolResult(value: object): CallToolResult {
 
 function toolError(error: unknown): CallToolResult {
   const message = error instanceof Error ? error.message : String(error);
+  const structuredContent = {
+    error: {
+      name: error instanceof Error ? error.name : "Error",
+      message,
+      retryable: error instanceof Error && error.name === "GaiaDataError",
+    },
+  };
   return {
     content: [{ type: "text", text: message }],
+    structuredContent,
     isError: true,
   };
 }
-

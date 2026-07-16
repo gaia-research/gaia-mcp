@@ -21,7 +21,8 @@ describe("release versioning", () => {
       ),
     );
 
-    expect(config.packages["."].extraFiles ?? config.packages["."]["extra-files"])
-      .toContainEqual({ type: "generic", path: "src/version.ts" });
+    expect(
+      config.packages["."].extraFiles ?? config.packages["."]["extra-files"],
+    ).toContainEqual({ type: "generic", path: "src/version.ts" });
   });
 });
