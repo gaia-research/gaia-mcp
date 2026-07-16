@@ -181,6 +181,14 @@ Until a required contract exists, the corresponding MCP capability remains
 unavailable. The MCP implementation must not bypass the missing seam by reading
 private repository layouts.
 
+For Registry-mode reads, stale data remains available with its age, freshness
+window, source URLs, and an actionable regeneration warning. This is deliberate:
+an older evidence-backed answer is more useful than an outage, provided the
+agent can see the limitation. Structurally invalid or incompatible data fails
+closed. The `gaia-public-v1` adapter requires non-empty generic and Named
+projections and rejects dangling Named-to-generic references so projections
+from different builds cannot be silently combined.
+
 ## 10. Identity and personal state
 
 The location and authority of personal Skill Tree data is intentionally not
