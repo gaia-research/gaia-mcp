@@ -78,10 +78,6 @@ jobs:
         run: npm sbom --sbom-format cyclonedx > "gaia-mcp-${{ needs.release_please.outputs.tag_name }}-sbom.cdx.json"
       - name: Publish package
         run: npm publish --access public
-        env:
-          # Used only to bootstrap the first package version. npm prefers OIDC
-          # after the trusted publisher exists; remove this secret afterward.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_BOOTSTRAP_TOKEN }}
       - name: Attach SBOM to GitHub Release
         run: gh release upload "${{ needs.release_please.outputs.tag_name }}" "gaia-mcp-${{ needs.release_please.outputs.tag_name }}-sbom.cdx.json"
         env:
