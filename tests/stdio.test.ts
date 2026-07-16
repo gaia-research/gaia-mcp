@@ -17,7 +17,23 @@ describe("gaia-mcp stdio executable", () => {
         response.end(
           JSON.stringify({
             generatedAt: "2026-07-16",
-            buckets: {},
+            buckets: {
+              "automated-testing": [
+                {
+                  id: "example/health",
+                  name: "Health",
+                  contributor: "example",
+                  genericSkillRef: "automated-testing",
+                  status: "named",
+                  level: "2★",
+                  description: "Runs tests.",
+                  catalogRef: "example-health",
+                  tags: [],
+                  links: {},
+                  evidence: [],
+                },
+              ],
+            },
           }),
         );
         return;
@@ -83,7 +99,9 @@ describe("gaia-mcp stdio executable", () => {
       arguments: { query: "automated testing" },
     });
     expect(result.structuredContent).toMatchObject({
-      results: [{ id: "automated-testing" }],
+      results: expect.arrayContaining([
+        expect.objectContaining({ id: "automated-testing" }),
+      ]),
       meta: {
         sources: {
           generic: `${baseUrl}/generic.json`,

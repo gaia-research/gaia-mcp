@@ -16,3 +16,6 @@ not an upstream version claim. Gaia MCP rejects an incompatible advertised
 version, rejects incomplete projections, and reports the unversioned upstream
 state as a warning in every tool result.
 
+Stale but structurally consistent data remains queryable with its age and a
+regeneration warning. Missing required fields, empty projections, unsupported
+advertised versions, and dangling Named-to-generic references fail closed.

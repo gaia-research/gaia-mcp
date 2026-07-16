@@ -73,6 +73,25 @@ export class HttpGaiaRegistrySource implements GaiaRegistrySource {
         `Generic Gaia projection at ${this.#genericUrl} contains no skills. Restore/regenerate the projection, then retry.`,
       );
     }
+    const genericIds = new Set(generic.data.skills.map((skill) => skill.id));
+    const namedSkills = Object.values(named.data.buckets).flat();
+    if (namedSkills.length === 0) {
+      throw new GaiaDataError(
+        `Named Gaia projection at ${this.#namedUrl} contains no Named Skills. Restore/regenerate the projection, then retry.`,
+      );
+    }
+    const orphanedNamedSkills = namedSkills.filter(
+      (skill) => !genericIds.has(skill.genericSkillRef),
+    );
+    if (orphanedNamedSkills.length > 0) {
+      const examples = orphanedNamedSkills
+        .slice(0, 3)
+        .map((skill) => `${skill.id} -> ${skill.genericSkillRef}`)
+        .join(", ");
+      throw new GaiaDataError(
+        `Named Gaia projection is inconsistent with the generic projection: ${orphanedNamedSkills.length} Named Skill references a missing generic skill (${examples}). Regenerate both projections from the same Gaia build, then retry.`,
+      );
+    }
 
     const snapshot: GaiaRegistrySnapshot = {
       generic: generic.data,

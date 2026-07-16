@@ -97,4 +97,56 @@ describe("HttpGaiaRegistrySource", () => {
       /contains no skills.*restore\/regenerate/i,
     );
   });
+
+  it("rejects cross-projection references from different builds", async () => {
+    const source = new HttpGaiaRegistrySource({
+      genericUrl: "https://example.test/generic.json",
+      namedUrl: "https://example.test/named.json",
+      fetchFn: async (input) =>
+        new Response(
+          JSON.stringify(
+            String(input).endsWith("named.json")
+              ? {
+                  generatedAt: "2026-07-16",
+                  buckets: {
+                    missing: [
+                      {
+                        id: "example/orphan",
+                        name: "Orphan",
+                        contributor: "example",
+                        genericSkillRef: "missing",
+                        status: "named",
+                        level: "2★",
+                        description: "References a missing generic skill.",
+                        tags: [],
+                        links: {},
+                        evidence: [],
+                      },
+                    ],
+                  },
+                }
+              : {
+                  generatedAt: "2026-07-16T00:00:00Z",
+                  skills: [
+                    {
+                      id: "testing",
+                      name: "Testing",
+                      type: "basic",
+                      description: "Runs tests.",
+                      prerequisites: [],
+                      derivatives: [],
+                      evidence: [],
+                      status: "active",
+                    },
+                  ],
+                },
+          ),
+          { status: 200 },
+        ),
+    });
+
+    await expect(source.load()).rejects.toThrow(
+      /references a missing generic skill.*same Gaia build/i,
+    );
+  });
 });

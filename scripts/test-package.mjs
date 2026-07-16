@@ -43,7 +43,26 @@ try {
     response.end(
       JSON.stringify(
         request.url === "/named.json"
-          ? { generatedAt: "2026-07-16", buckets: {} }
+          ? {
+              generatedAt: "2026-07-16",
+              buckets: {
+                "automated-testing": [
+                  {
+                    id: "example/health",
+                    name: "Health",
+                    contributor: "example",
+                    genericSkillRef: "automated-testing",
+                    status: "named",
+                    level: "2★",
+                    description: "Runs tests.",
+                    catalogRef: "example-health",
+                    tags: [],
+                    links: {},
+                    evidence: [],
+                  },
+                ],
+              },
+            }
           : {
               generatedAt: "2026-07-16T00:00:00Z",
               skills: [

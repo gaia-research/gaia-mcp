@@ -55,7 +55,7 @@ and security fixes are patch changes.
 
 Every public release must produce:
 
-1. a protected-workflow git tag `vX.Y.Z`;
+1. a workflow-generated git tag `vX.Y.Z`;
 2. a GitHub Release with compatibility table and migration notes;
 3. an npm package with exactly the same version;
 4. a generated software bill of materials;
@@ -75,7 +75,7 @@ The repository uses Release Please with Conventional Commits:
 2. the release workflow runs unit, protocol, stdio, live-contract, build, and
    clean-package gates before it allows a tag;
 3. merging the release pull request updates `package.json`, `src/version.ts`,
-   and this changelog, then creates the protected-workflow tag and GitHub
+   and this changelog, then creates the workflow-generated tag and GitHub
    Release;
 4. npm publishes from the GitHub-hosted `release.yml` workflow using OIDC;
 5. the workflow attaches a CycloneDX SBOM to the GitHub Release.

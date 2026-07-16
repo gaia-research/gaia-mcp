@@ -1,5 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { SUPPORTED_PROTOCOL_VERSIONS } from "@modelcontextprotocol/sdk/types.js";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -96,4 +97,34 @@ describe("Gaia MCP protocol", () => {
       },
     });
   });
+
+  it.each(SUPPORTED_PROTOCOL_VERSIONS)(
+    "initializes and lists tools using MCP protocol %s",
+    async (protocolVersion) => {
+      const service = new GaiaService(
+        new InMemoryGaiaRegistrySource(documents),
+      );
+      const server = createGaiaMcpServer({ service, version: "0.0.0" });
+      const client = new Client({ name: "protocol-test", version: "1.0.0" });
+      const [clientTransport, serverTransport] =
+        InMemoryTransport.createLinkedPair();
+      const send = clientTransport.send.bind(clientTransport);
+      clientTransport.send = async (message, options) => {
+        if ("method" in message && message.method === "initialize") {
+          (message.params as { protocolVersion: string }).protocolVersion =
+            protocolVersion;
+        }
+        await send(message, options);
+      };
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      closeCallbacks.push(
+        () => client.close(),
+        () => server.close(),
+      );
+
+      const tools = await client.listTools();
+      expect(tools.tools).toHaveLength(3);
+    },
+  );
 });
