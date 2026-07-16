@@ -1,0 +1,164 @@
+export const GAIA_PUBLIC_CONTRACT_VERSION = "gaia-public-v1" as const;
+
+export type GaiaEvidence = {
+  class?: string | undefined;
+  grade?: string | undefined;
+  type?: string | undefined;
+  source: string;
+  evaluator?: string | undefined;
+  date?: string | undefined;
+  notes?: string | undefined;
+  trustNumber?: number | undefined;
+};
+
+export type GenericSkill = {
+  id: string;
+  name: string;
+  type: string;
+  title?: string | undefined;
+  summary?: string | undefined;
+  description: string;
+  prerequisites: string[];
+  derivatives: string[];
+  evidence: GaiaEvidence[];
+  status: string;
+  namedMaxLevel?: string | undefined;
+  overallTrustGrade?: string | undefined;
+  updatedAt?: string | undefined;
+};
+
+export type NamedSkill = {
+  id: string;
+  name: string;
+  title?: string | undefined;
+  contributor: string;
+  genericSkillRef: string;
+  status: string;
+  level: string;
+  description: string;
+  catalogRef?: string | undefined;
+  tags: string[];
+  links: Record<string, unknown>;
+  evidence: GaiaEvidence[];
+  trustMagnitude?: number | undefined;
+  overallTrustGrade?: string | undefined;
+  type?: string | undefined;
+  updatedAt?: string | undefined;
+};
+
+export type GenericRegistryDocument = {
+  generatedAt: string;
+  skills: GenericSkill[];
+};
+
+export type NamedRegistryDocument = {
+  generatedAt: string;
+  buckets: Record<string, NamedSkill[]>;
+};
+
+export type GaiaRegistryDocuments = {
+  generic: GenericRegistryDocument;
+  named: NamedRegistryDocument;
+};
+
+export type RegistrySourceInfo = {
+  genericUrl: string;
+  namedUrl: string;
+  fetchedAt: string;
+};
+
+export type GaiaRegistrySnapshot = GaiaRegistryDocuments & {
+  source: RegistrySourceInfo;
+};
+
+export type ResultMetadata = {
+  contractVersion: typeof GAIA_PUBLIC_CONTRACT_VERSION;
+  freshness: "fresh" | "stale";
+  genericGeneratedAt: string;
+  namedGeneratedAt: string;
+  fetchedAt: string;
+  sources: {
+    generic: string;
+    named: string;
+  };
+};
+
+export type SearchInput = {
+  query: string;
+  limit?: number | undefined;
+  kinds?: Array<"generic" | "named"> | undefined;
+  types?: string[] | undefined;
+};
+
+export type SearchResultItem = {
+  kind: "generic" | "named";
+  id: string;
+  name: string;
+  title?: string;
+  description: string;
+  type?: string;
+  status: string;
+  genericSkillRef?: string;
+  level?: string;
+  trustMagnitude?: number;
+  overallTrustGrade?: string;
+  evidenceCount: number;
+  sourceUrl?: string;
+};
+
+export type SearchResult = {
+  query: string;
+  results: SearchResultItem[];
+  meta: ResultMetadata;
+};
+
+export type NamedSkillSummary = {
+  id: string;
+  name: string;
+  title?: string;
+  contributor: string;
+  level: string;
+  description: string;
+  catalogRef?: string | undefined;
+  trustMagnitude?: number;
+  overallTrustGrade?: string;
+  sourceUrl?: string;
+};
+
+export type GenericSkillDossier = GenericSkill & {
+  kind: "generic";
+  namedImplementations: NamedSkillSummary[];
+};
+
+export type NamedSkillDossier = NamedSkill & {
+  kind: "named";
+  genericSkill?: {
+    id: string;
+    name: string;
+    type: string;
+    status: string;
+  };
+};
+
+export type SkillDossier = GenericSkillDossier | NamedSkillDossier;
+
+export type InspectResult = {
+  skill: SkillDossier;
+  meta: ResultMetadata;
+};
+
+export type StatusResult = ResultMetadata & {
+  serverVersion: string;
+  mode: "registry";
+  counts: {
+    genericSkills: number;
+    namedSkills: number;
+  };
+  tools: ["gaia_search", "gaia_inspect", "gaia_status"];
+  bondedCapabilities: false;
+  compatibility: {
+    mcpSdk: "@modelcontextprotocol/sdk@1.29.0";
+    node: ">=22.14.0";
+    transports: ["stdio"];
+  };
+};

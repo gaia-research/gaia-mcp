@@ -5,8 +5,7 @@ cross-repository contracts are accepted.
 
 ## M0 — Architecture baseline
 
-Status: complete when this repository, architecture, release policy, and
-cross-repository handoffs exist.
+Status: complete.
 
 - establish standalone ownership;
 - define repository seams and non-goals;
@@ -16,6 +15,8 @@ cross-repository handoffs exist.
 No runnable MCP server is claimed in M0.
 
 ## v0.1 — Trusted discovery
+
+Status: implementation under review; publication pending.
 
 Goal: an agent can discover and evaluate Gaia skills using current canonical
 data.

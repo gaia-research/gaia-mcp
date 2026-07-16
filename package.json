@@ -1,0 +1,70 @@
+{
+  "name": "@gaia-research/mcp",
+  "version": "0.0.0",
+  "description": "Agent-native discovery and trust interface for the Gaia Skill Tree",
+  "type": "module",
+  "bin": {
+    "gaia-mcp": "dist/bin/gaia-mcp.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "ARCHITECTURE.md",
+    "ROADMAP.md",
+    "VERSIONING.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "pretest": "npm run build --silent",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:live": "vitest run --config vitest.live.config.ts",
+    "test:package": "npm run build --silent && node scripts/test-package.mjs",
+    "check": "npm run typecheck && npm test && npm run test:package",
+    "prepack": "npm run check"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gaia-research/gaia-mcp.git"
+  },
+  "homepage": "https://github.com/gaia-research/gaia-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/gaia-research/gaia-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "skill-discovery",
+    "gaia"
+  ],
+  "author": "Gaia Research",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.1.10"
+  }
+}

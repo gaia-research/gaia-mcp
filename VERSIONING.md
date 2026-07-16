@@ -55,7 +55,7 @@ and security fixes are patch changes.
 
 Every public release must produce:
 
-1. a signed git tag `vX.Y.Z`;
+1. a protected-workflow git tag `vX.Y.Z`;
 2. a GitHub Release with compatibility table and migration notes;
 3. an npm package with exactly the same version;
 4. a generated software bill of materials;
@@ -66,6 +66,28 @@ Every public release must produce:
 The intended npm package is `@gaia-research/mcp`. It must use npm provenance and
 trusted publishing when implementation begins. Long-lived npm tokens are not
 part of the release design.
+
+## Release automation
+
+The repository uses Release Please with Conventional Commits:
+
+1. merges to `main` update a reviewable release pull request;
+2. the release workflow runs unit, protocol, stdio, live-contract, build, and
+   clean-package gates before it allows a tag;
+3. merging the release pull request updates `package.json`, `src/version.ts`,
+   and this changelog, then creates the protected-workflow tag and GitHub
+   Release;
+4. npm publishes from the GitHub-hosted `release.yml` workflow using OIDC;
+5. the workflow attaches a CycloneDX SBOM to the GitHub Release.
+
+The runtime version is kept in `src/version.ts`; Release Please updates it via
+the `x-release-please-version` marker alongside `package.json`.
+
+Trusted publishing requires the package to exist first. The first release uses
+one short-lived `NPM_BOOTSTRAP_TOKEN` from the same GitHub-hosted workflow so it
+still receives provenance. Immediately afterward, the maintainer configures
+the npm trusted publisher, deletes the GitHub secret, and revokes the token.
+All subsequent releases are tokenless.
 
 ## Release gate
 
@@ -78,5 +100,5 @@ A tag is created only after:
 - action releases pass fail-closed and approval tests;
 - documentation names any deprecations or operator steps.
 
-The repository is currently at the architecture baseline and has no published
-package or release. The first implementation release will be `v0.1.0`.
+The `v0.1.0` implementation is under review and has no published package or
+release yet. The first public release will be `v0.1.0`.
