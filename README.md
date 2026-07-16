@@ -21,7 +21,7 @@ Registry directly.
 | Repository | Responsibility |
 |---|---|
 | [`gaia-skill-tree`](https://github.com/gaia-research/gaia-skill-tree) | Canonical Registry, schemas, public data, Trust Magnitude, and validated CLI actions. |
-| [`gaia-research`](https://github.com/gaia-research/gaia-research) | Human-facing portal, research, labs, reports, and the future Gaia MCP product page. |
+| [`gaia-research`](https://github.com/gaia-research/gaia-research) | Human-facing portal, research, reports, and the future Gaia MCP product page. |
 | **`gaia-mcp`** | Agent-facing discovery, comparison, recommendation, installation coordination, and progression guidance. |
 | [`skill-fuse`](https://github.com/gaia-research/skill-fuse) | Creative authoring: combines installed skills into a new `SKILL.md`. |
 | [`gaia-operator`](https://github.com/gaia-research/gaia-operator) | Guarded browser and platform interaction runtime. |
@@ -44,6 +44,12 @@ and require explicit approval where it changes the workspace or external state.
 - [Architecture](ARCHITECTURE.md)
 - [Delivery roadmap](ROADMAP.md)
 - [Versioning and releases](VERSIONING.md)
+
+## Cross-repository tracking
+
+- [`gaia-mcp` v0.1 implementation and release](https://github.com/gaia-research/gaia-mcp/issues/1)
+- [Gaia Skill Tree extraction and Roadmap v5 RFC](https://github.com/gaia-research/gaia-skill-tree/issues/1191)
+- [Gaia Research website integration and consumer test](https://github.com/gaia-research/gaia-research/issues/53)
 
 ## Non-goals
 
