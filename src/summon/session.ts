@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -6,17 +6,30 @@ import path from "node:path";
 const SESSION_DIR_PREFIX = "gaia-hell-";
 const MANIFEST_FILE = "session.json";
 
-export type MaterializedSkillRecord = {
+export type InstalledSkill = {
   id: string;
   name: string;
   contributor: string;
   level: string;
   trustMagnitude?: number | undefined;
+  stars: number;
   sourceUrl: string;
+  repoUrl: string;
+  branch: string | null;
+  subpath: string;
   path: string;
-  bytes: number;
-  sha256: string;
+  fileCount: number;
+  /** "cold" = repo cache was freshly cloned; "warm" = an existing cache was reused. */
+  cache: "cold" | "warm";
+  cloneSeconds: number;
+  materializeSeconds: number;
+  totalSeconds: number;
+};
+
+export type MaterializedSkillRecord = InstalledSkill & {
   materializedAt: string;
+  /** Set when this skill was pulled in as a suite component, not summoned directly. */
+  viaSuite?: string | undefined;
 };
 
 export type SessionManifest = {
@@ -24,15 +37,6 @@ export type SessionManifest = {
   createdAt: string;
   pid: number;
   skills: MaterializedSkillRecord[];
-};
-
-export type MaterializeInput = {
-  id: string;
-  name: string;
-  contributor: string;
-  level: string;
-  trustMagnitude?: number | undefined;
-  sourceUrl: string;
 };
 
 export type OpenSessionOptions = {
@@ -96,33 +100,33 @@ export class SummonSession {
     return this.#manifest.skills;
   }
 
-  async materialize(
-    skill: MaterializeInput,
-    content: string,
-  ): Promise<{ path: string }> {
-    const safeId = skill.id.replaceAll("/", "__");
-    const dir = path.join(this.root, "skills", safeId);
-    await mkdir(dir, { recursive: true });
-    const filePath = path.join(dir, "SKILL.md");
-    await writeFile(filePath, content, "utf8");
+  /** Directory under which git caches for this session live: <root>/cache/. */
+  get cacheRoot(): string {
+    return path.join(this.root, "cache");
+  }
 
+  /** Directory under which materialized skills for this session live: <root>/skills/. */
+  get skillsRoot(): string {
+    return path.join(this.root, "skills");
+  }
+
+  async ensureRoots(): Promise<void> {
+    await mkdir(this.cacheRoot, { recursive: true });
+    await mkdir(this.skillsRoot, { recursive: true });
+  }
+
+  /** Record a skill (or suite component) already materialized on disk into the session manifest. */
+  async recordSkill(
+    skill: InstalledSkill,
+    opts: { viaSuite?: string | undefined } = {},
+  ): Promise<void> {
     const record: MaterializedSkillRecord = {
-      id: skill.id,
-      name: skill.name,
-      contributor: skill.contributor,
-      level: skill.level,
-      ...(skill.trustMagnitude === undefined
-        ? {}
-        : { trustMagnitude: skill.trustMagnitude }),
-      sourceUrl: skill.sourceUrl,
-      path: filePath,
-      bytes: Buffer.byteLength(content, "utf8"),
-      sha256: createHash("sha256").update(content, "utf8").digest("hex"),
+      ...skill,
+      ...(opts.viaSuite === undefined ? {} : { viaSuite: opts.viaSuite }),
       materializedAt: new Date().toISOString(),
     };
     this.#manifest.skills.push(record);
     await this.#writeManifest();
-    return { path: filePath };
   }
 
   async close(): Promise<void> {

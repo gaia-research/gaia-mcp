@@ -72,8 +72,21 @@ async function runSummon(args: ParsedArgs): Promise<void> {
         result.level,
         result.trustMagnitude,
         result.path,
+        { totalSeconds: result.totalSeconds, cache: result.cache },
       );
     }
+    for (const suite of outcome.suites) {
+      const label = suite.ok ? "suite" : "suite!";
+      process.stdout.write(
+        `  ${label.padEnd(LABEL_WIDTH)}  ${suite.suiteId}  ${suite.succeededComponents}/${suite.totalComponents} components` +
+          (suite.rootHasOwnSource ? `, root ${suite.rootInstalled ? "installed" : "failed"}` : "") +
+          "\n",
+      );
+      if (!suite.ok) {
+        process.stdout.write(`            failed: ${suite.failedComponents.join(", ")}\n`);
+      }
+    }
+    process.stdout.write(`  total     ${outcome.totalSeconds.toFixed(2)}s\n`);
   }
 
   if (outcome.summoned.length === 0) {
@@ -107,6 +120,7 @@ async function runList(args: ParsedArgs): Promise<void> {
       skill.level,
       skill.trustMagnitude,
       skill.path,
+      { totalSeconds: skill.totalSeconds, cache: skill.cache },
     );
   }
 }
@@ -164,10 +178,11 @@ function printSkillLine(
   level: string,
   trustMagnitude: number | undefined,
   filePath: string,
+  timing: { totalSeconds: number; cache: "cold" | "warm" },
 ): void {
   const prefix = `  ${label.padEnd(LABEL_WIDTH)}  `;
   process.stdout.write(
-    `${prefix}${id}  ${level}  TM ${formatTrustMagnitude(trustMagnitude)}\n`,
+    `${prefix}${id}  ${level}  TM ${formatTrustMagnitude(trustMagnitude)}  (${timing.totalSeconds.toFixed(2)}s, ${timing.cache})\n`,
   );
   process.stdout.write(`${" ".repeat(prefix.length)}-> ${filePath}\n`);
 }

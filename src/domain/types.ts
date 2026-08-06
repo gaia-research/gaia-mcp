@@ -44,6 +44,10 @@ export type NamedSkill = {
   overallTrustGrade?: string | undefined;
   type?: string | undefined;
   updatedAt?: string | undefined;
+  /** Registry-only guard: `false` means this skill must refuse to install. */
+  installable?: boolean | undefined;
+  /** Skill ids/catalogRefs/bare-names installed recursively as a suite. */
+  suiteComponents?: string[] | undefined;
 };
 
 export type GenericRegistryDocument = {

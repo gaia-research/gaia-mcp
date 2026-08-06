@@ -49,6 +49,8 @@ const namedSkillSchema = z
     overallTrustGrade: z.string().optional(),
     type: z.string().optional(),
     updatedAt: z.string().optional(),
+    installable: z.boolean().optional(),
+    suiteComponents: z.array(z.string()).optional(),
   })
   .passthrough();
 
