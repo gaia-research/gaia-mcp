@@ -289,6 +289,12 @@ export class GaiaService {
     };
   }
 
+  /** Full pool of Named Skills, for callers (summon) that rank on raw fields. */
+  async namedSkills(): Promise<NamedSkill[]> {
+    const snapshot = await this.#source.load();
+    return flattenNamed(snapshot);
+  }
+
   #metadata(snapshot: GaiaRegistrySnapshot): ResultMetadata {
     const generatedTimes = [
       Date.parse(snapshot.generic.generatedAt),
