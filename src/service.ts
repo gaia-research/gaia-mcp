@@ -384,13 +384,13 @@ function normalize(value: string): string {
     .trim();
 }
 
-function starCount(level: string | undefined): number {
+export function starCount(level: string | undefined): number {
   if (!level) return -1;
   const match = /^(\d)★/.exec(level);
   return match?.[1] === undefined ? -1 : Number(match[1]);
 }
 
-function isInstallable(skill: NamedSkill): boolean {
+export function isInstallable(skill: NamedSkill): boolean {
   if (skill.links.installable === false) return false;
   return (
     typeof skill.links.github === "string" &&
@@ -400,7 +400,7 @@ function isInstallable(skill: NamedSkill): boolean {
   );
 }
 
-function scoreMatch(
+export function scoreMatch(
   query: string,
   weightedFields: ReadonlyArray<readonly [value: string, weight: number]>,
 ): number {
