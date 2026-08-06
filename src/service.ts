@@ -277,13 +277,12 @@ export class GaiaService {
         genericSkills: snapshot.generic.skills.length,
         namedSkills: flattenNamed(snapshot).length,
       },
-      tools: ["gaia_search", "gaia_inspect", "gaia_status"],
+      tools: ["gaia_search", "gaia_inspect", "gaia_status", "gaia_summon"],
       bondedCapabilities: false,
       missingCapabilities: [
         "bonded-local-context",
         "workspace-analysis",
         "progression-paths",
-        "guarded-actions",
       ],
       ...this.#metadata(snapshot),
     };

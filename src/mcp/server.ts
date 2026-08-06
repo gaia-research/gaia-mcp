@@ -3,6 +3,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import type { GaiaService } from "../service.js";
+import { resolveSession, type SummonSession } from "../summon/session.js";
+import { summon } from "../summon/summon.js";
 import { VERSION } from "../version.js";
 
 export type CreateGaiaMcpServerOptions = {
@@ -17,6 +19,13 @@ const readOnlyAnnotations = {
   openWorldHint: true,
 } as const;
 
+const summonAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: true,
+} as const;
+
 export function createGaiaMcpServer({
   service,
   version = VERSION,
@@ -25,9 +34,15 @@ export function createGaiaMcpServer({
     { name: "gaia-mcp", version },
     {
       instructions:
-        "Use gaia_search to discover capabilities, gaia_inspect to verify a candidate with evidence, and gaia_status to check data freshness. This v0.1 server is read-only Registry mode; it cannot install, fuse, or mutate skills.",
+        "Use gaia_search to discover capabilities, gaia_inspect to verify a candidate with evidence, gaia_summon to materialize the best-matching skill's SKILL.md into a session-locked temp directory, and gaia_status to check data freshness and capabilities. The Gaia Registry itself is read-only and cannot be installed into, fused, or mutated; gaia_summon does not touch your real configuration either — it writes only inside an ephemeral, session-scoped directory (see the returned sessionRoot) that is never reused across unrelated sessions and is meant to be discarded when the session ends.",
     },
   );
+
+  let sessionPromise: Promise<SummonSession> | undefined;
+  function getSession(): Promise<SummonSession> {
+    sessionPromise ??= resolveSession().then(({ session }) => session);
+    return sessionPromise;
+  }
 
   server.registerTool(
     "gaia_search",
@@ -91,6 +106,31 @@ export function createGaiaMcpServer({
     async ({ id }): Promise<CallToolResult> => {
       try {
         return toolResult(await service.inspect(id));
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "gaia_summon",
+    {
+      title: "Summon a Gaia skill",
+      description:
+        "Fetch the best-matching installable Named Skill's SKILL.md from the live Gaia Registry and materialize it into a session-locked temp directory. Never writes to your real configuration. Falls through to the next-best candidate on a fetch failure and reports what was skipped.",
+      inputSchema: z.object({
+        query: z
+          .string()
+          .min(1)
+          .describe("Task or capability to summon a matching skill for."),
+        limit: z.number().int().min(1).max(5).optional(),
+      }),
+      annotations: summonAnnotations,
+    },
+    async ({ query, limit }): Promise<CallToolResult> => {
+      try {
+        const session = await getSession();
+        return toolResult(await summon(service, session, { query, limit }));
       } catch (error) {
         return toolError(error);
       }
