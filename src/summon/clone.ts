@@ -1,0 +1,84 @@
+import { execFile } from "node:child_process";
+import { mkdir, rm, stat } from "node:fs/promises";
+import path from "node:path";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+const GIT_TIMEOUT_MS = 60_000;
+
+export type CloneOutcome = {
+  path: string;
+  seconds: number;
+  /** false = freshly cloned ("cold"), true = existing cache reused via pull ("warm"). */
+  warm: boolean;
+};
+
+/**
+ * Ensure repoUrl@branch is checked out at cacheDir, mirroring install.py's
+ * `_install_single` caching step: clone if absent, `git pull` if a valid
+ * cache exists, and repair (rmtree + re-clone) a partial cache or a failed
+ * pull rather than trusting it as-is.
+ */
+export async function ensureCachedRepo(
+  cacheDir: string,
+  repoUrl: string,
+  branch: string | null,
+): Promise<CloneOutcome> {
+  const start = Date.now();
+
+  const exists = await pathExists(cacheDir);
+  const validRepo = exists && (await pathExists(path.join(cacheDir, ".git")));
+  if (exists && !validRepo) {
+    await rm(cacheDir, { recursive: true, force: true });
+  }
+
+  let warm: boolean;
+  if (!(await pathExists(cacheDir))) {
+    await cloneRepo(repoUrl, branch, cacheDir);
+    warm = false;
+  } else {
+    try {
+      await runGit(["pull"], cacheDir);
+      warm = true;
+    } catch {
+      await rm(cacheDir, { recursive: true, force: true });
+      await cloneRepo(repoUrl, branch, cacheDir);
+      warm = false;
+    }
+  }
+
+  return { path: cacheDir, seconds: (Date.now() - start) / 1000, warm };
+}
+
+async function cloneRepo(
+  repoUrl: string,
+  branch: string | null,
+  dest: string,
+): Promise<void> {
+  await mkdir(path.dirname(dest), { recursive: true });
+  const args = ["clone", "--single-branch", "--depth", "1"];
+  if (branch) args.push("-b", branch);
+  args.push(repoUrl, dest);
+  await runGit(args);
+}
+
+async function runGit(args: string[], cwd?: string): Promise<void> {
+  try {
+    await execFileAsync("git", args, { cwd, timeout: GIT_TIMEOUT_MS });
+  } catch (error) {
+    throw new Error(`git ${args.join(" ")} failed: ${errorMessage(error)}`);
+  }
+}
+
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await stat(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
