@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/gaia-research/gaia-mcp/compare/mcp-v0.2.0...mcp-v0.3.0) (2026-08-07)
+
+
+### Features
+
+* **summon:** ambient summoning and tree-provided trust ([#10](https://github.com/gaia-research/gaia-mcp/issues/10)) ([46b7104](https://github.com/gaia-research/gaia-mcp/commit/46b7104ea1d2b9ef55fa00d582e49a269a9836b5))
+
 ## [0.2.0](https://github.com/gaia-research/gaia-mcp/compare/mcp-v0.1.0...mcp-v0.2.0) (2026-08-07)
 
 
