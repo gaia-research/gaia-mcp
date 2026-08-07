@@ -15,7 +15,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 const DEFAULT_CACHE_MAX_MB = 16;
-const CACHE_DIR_NAME = "gaia-hell-payload-cache-v1";
+const CACHE_DIR_NAME = "gaia-summon-payload-cache-v1";
 const METADATA_FILE = "metadata.json";
 const PAYLOAD_DIR = "payload";
 

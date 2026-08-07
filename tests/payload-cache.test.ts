@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   PayloadCache,
   type PayloadIdentity,
+  payloadCacheRoot,
 } from "../src/summon/payload-cache.js";
 
 const cleanupRoots: string[] = [];
@@ -20,6 +21,17 @@ afterEach(async () => {
 });
 
 describe("payload retention cache", () => {
+  it("uses a default root that the session reaper cannot mistake for a session", () => {
+    const configured = process.env.GAIA_HELL_CACHE_DIR;
+    delete process.env.GAIA_HELL_CACHE_DIR;
+    try {
+      expect(path.basename(payloadCacheRoot())).not.toMatch(/^gaia-hell-/u);
+    } finally {
+      if (configured !== undefined)
+        process.env.GAIA_HELL_CACHE_DIR = configured;
+    }
+  });
+
   it("keys payloads by resolved commit and subpath", async () => {
     const root = await temporaryRoot();
     const source = await payload(root, "source", "one");
