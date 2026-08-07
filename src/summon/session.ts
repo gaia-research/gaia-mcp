@@ -1,10 +1,19 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 const SESSION_DIR_PREFIX = "gaia-hell-";
 const MANIFEST_FILE = "session.json";
+const DEFAULT_SESSION_TTL_HOURS = 4;
 
 export type InstalledSkill = {
   id: string;
@@ -47,6 +56,29 @@ export type OpenSessionOptions = {
 export type ResolveSessionResult = {
   session: SummonSession;
   created: boolean;
+};
+
+export type ReapSessionOptions = {
+  dryRun?: boolean | undefined;
+  excludeRoots?: readonly string[] | undefined;
+  now?: Date | undefined;
+  tempRoot?: string | undefined;
+  ttlHours?: number | undefined;
+};
+
+export type ReapedSession = {
+  root: string;
+  ageHours: number;
+  bytes: number;
+};
+
+export type ReapSessionOutcome = {
+  dryRun: boolean;
+  ttlHours: number;
+  scanned: number;
+  candidates: ReapedSession[];
+  reclaimedBytes: number;
+  liveProtected: string[];
 };
 
 /**
@@ -167,6 +199,117 @@ export async function resolveSession(
     };
   }
   return { session: await openSession(opts), created: true };
+}
+
+/** Remove expired, abandoned session roots while preserving every live PID. */
+export async function reapSessions(
+  opts: ReapSessionOptions = {},
+): Promise<ReapSessionOutcome> {
+  const dryRun = opts.dryRun ?? false;
+  const ttlHours = opts.ttlHours ?? sessionTtlHours();
+  if (!Number.isFinite(ttlHours) || ttlHours < 0) {
+    throw new Error(
+      `Session TTL must be a non-negative number, got: ${ttlHours}`,
+    );
+  }
+
+  const root = opts.tempRoot ?? tmpdir();
+  const excluded = new Set(
+    (opts.excludeRoots ?? []).map((item) => path.resolve(item)),
+  );
+  const now = (opts.now ?? new Date()).getTime();
+  const candidates: ReapedSession[] = [];
+  const liveProtected: string[] = [];
+  let entries;
+  try {
+    entries = await readdir(root, { withFileTypes: true });
+  } catch (error) {
+    throw new Error(
+      `Could not scan session roots in ${root}: ${errorMessage(error)}`,
+    );
+  }
+
+  let scanned = 0;
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !entry.name.startsWith(SESSION_DIR_PREFIX))
+      continue;
+    const sessionRoot = path.join(root, entry.name);
+    if (excluded.has(path.resolve(sessionRoot))) continue;
+    scanned++;
+
+    const manifest = await readManifestSafely(sessionRoot);
+    if (manifest?.pid !== undefined && isProcessLive(manifest.pid)) {
+      liveProtected.push(sessionRoot);
+      continue;
+    }
+
+    const sessionStat = await lstat(sessionRoot);
+    const createdAt = manifest ? Date.parse(manifest.createdAt) : Number.NaN;
+    const startedAt = Number.isFinite(createdAt)
+      ? createdAt
+      : sessionStat.mtimeMs;
+    const ageHours = Math.max(0, (now - startedAt) / 3_600_000);
+    if (ageHours < ttlHours) continue;
+
+    const bytes = await directorySize(sessionRoot);
+    candidates.push({ root: sessionRoot, ageHours, bytes });
+    if (!dryRun) await rm(sessionRoot, { recursive: true, force: true });
+  }
+
+  return {
+    dryRun,
+    ttlHours,
+    scanned,
+    candidates,
+    reclaimedBytes: candidates.reduce((total, item) => total + item.bytes, 0),
+    liveProtected,
+  };
+}
+
+function sessionTtlHours(): number {
+  const configured = process.env.GAIA_HELL_TTL_HOURS;
+  if (configured === undefined) return DEFAULT_SESSION_TTL_HOURS;
+  const value = Number(configured);
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(
+      `GAIA_HELL_TTL_HOURS must be a non-negative number, got: ${configured}`,
+    );
+  }
+  return value;
+}
+
+async function readManifestSafely(
+  root: string,
+): Promise<SessionManifest | undefined> {
+  try {
+    return JSON.parse(
+      await readFile(path.join(root, MANIFEST_FILE), "utf8"),
+    ) as SessionManifest;
+  } catch {
+    return undefined;
+  }
+}
+
+function isProcessLive(pid: number): boolean {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ESRCH") return false;
+    return true;
+  }
+}
+
+async function directorySize(root: string): Promise<number> {
+  const target = await lstat(root);
+  if (!target.isDirectory()) return target.size;
+  let bytes = target.size;
+  for (const entry of await readdir(root)) {
+    bytes += await directorySize(path.join(root, entry));
+  }
+  return bytes;
 }
 
 function errorMessage(error: unknown): string {

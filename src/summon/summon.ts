@@ -9,6 +9,7 @@ import { parseGithubUrl } from "./giturl.js";
 import { materializeSkillDir } from "./materialize.js";
 import { rankCandidates } from "./rank.js";
 import { elapsedSeconds, startTiming } from "./timing.js";
+import { reapSessions } from "./session.js";
 import type { InstalledSkill, SummonSession } from "./session.js";
 
 const DEFAULT_LIMIT = 1;
@@ -80,6 +81,7 @@ export async function summon(
   }
   const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), MAX_LIMIT);
 
+  await reapSessions({ excludeRoots: [session.root] });
   const registry = await service.namedSkills();
   const candidates = rankCandidates(registry, trimmedQuery);
   await session.ensureRoots();

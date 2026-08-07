@@ -6,7 +6,7 @@ import {
   HttpGaiaRegistrySource,
 } from "../data/source.js";
 import { GaiaService } from "../service.js";
-import { resolveSession } from "../summon/session.js";
+import { reapSessions, resolveSession } from "../summon/session.js";
 import { summon } from "../summon/summon.js";
 
 const LABEL_WIDTH = 8;
@@ -16,6 +16,7 @@ const USAGE = `Usage:
   gaia-hell list [--json]
   gaia-hell path [--json]
   gaia-hell close [--json]
+  gaia-hell gc [--dry-run] [--json]
 `;
 
 class UsageError extends Error {
@@ -27,6 +28,7 @@ type ParsedArgs = {
   query: string | undefined;
   limit: number | undefined;
   json: boolean;
+  dryRun: boolean;
 };
 
 async function main(): Promise<void> {
@@ -43,6 +45,9 @@ async function main(): Promise<void> {
       return;
     case "close":
       await runClose(args);
+      return;
+    case "gc":
+      await runGc(args);
       return;
     default:
       throw new UsageError(`Unknown command: ${args.command}\n\n${USAGE}`);
@@ -82,11 +87,15 @@ async function runSummon(args: ParsedArgs): Promise<void> {
       const label = suite.ok ? "suite" : "suite!";
       process.stdout.write(
         `  ${label.padEnd(LABEL_WIDTH)}  ${suite.suiteId}  ${suite.succeededComponents}/${suite.totalComponents} components` +
-          (suite.rootHasOwnSource ? `, root ${suite.rootInstalled ? "installed" : "failed"}` : "") +
+          (suite.rootHasOwnSource
+            ? `, root ${suite.rootInstalled ? "installed" : "failed"}`
+            : "") +
           "\n",
       );
       if (!suite.ok) {
-        process.stdout.write(`            failed: ${suite.failedComponents.join(", ")}\n`);
+        process.stdout.write(
+          `            failed: ${suite.failedComponents.join(", ")}\n`,
+        );
       }
     }
     process.stdout.write(`  total     ${outcome.totalSeconds.toFixed(3)}s\n`);
@@ -163,6 +172,27 @@ async function runClose(args: ParsedArgs): Promise<void> {
   }
 }
 
+async function runGc(args: ParsedArgs): Promise<void> {
+  const outcome = await reapSessions({ dryRun: args.dryRun });
+  if (args.json) {
+    writeJson(outcome);
+    return;
+  }
+
+  const action = outcome.dryRun ? "would reap" : "reaped";
+  for (const candidate of outcome.candidates) {
+    process.stdout.write(
+      `  ${action.padEnd(LABEL_WIDTH)}  ${candidate.root}  (${formatBytes(candidate.bytes)}, ${candidate.ageHours.toFixed(1)}h old)\n`,
+    );
+  }
+  if (outcome.candidates.length === 0) {
+    process.stdout.write(`  (no expired abandoned sessions)\n`);
+  }
+  process.stdout.write(
+    `  protected ${outcome.liveProtected.length} live session(s); ${action} ${outcome.candidates.length}, ${formatBytes(outcome.reclaimedBytes)}\n`,
+  );
+}
+
 function createService(): GaiaService {
   const source = new HttpGaiaRegistrySource({
     genericUrl: process.env.GAIA_REGISTRY_URL ?? DEFAULT_GENERIC_REGISTRY_URL,
@@ -197,6 +227,12 @@ function formatTrustMagnitude(value: number | undefined): string {
   return value === undefined ? "n/a" : value.toFixed(1);
 }
 
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
+}
+
 function writeJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
@@ -209,6 +245,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   const rest = argv.slice(1);
   let limit: number | undefined;
   let json = false;
+  let dryRun = false;
   const positionals: string[] = [];
 
   for (let i = 0; i < rest.length; i++) {
@@ -216,6 +253,10 @@ function parseArgs(argv: string[]): ParsedArgs {
     if (arg === undefined) continue;
     if (arg === "--json") {
       json = true;
+      continue;
+    }
+    if (arg === "--dry-run") {
+      dryRun = true;
       continue;
     }
     if (arg === "--limit") {
@@ -237,7 +278,11 @@ function parseArgs(argv: string[]): ParsedArgs {
     positionals.push(arg);
   }
 
-  return { command, query: positionals[0], limit, json };
+  if (dryRun && command !== "gc") {
+    throw new UsageError("--dry-run is only valid with gc.");
+  }
+
+  return { command, query: positionals[0], limit, json, dryRun };
 }
 
 function parseLimit(value: string): number {
