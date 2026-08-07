@@ -4,6 +4,8 @@ import path from "node:path";
 import type { NamedSkill } from "../domain/types.js";
 import { starCount } from "../service.js";
 import type { GaiaService } from "../service.js";
+import { trustFields } from "../trust.js";
+import { inspectUrl, renderSummonCard } from "./card.js";
 import {
   discardCachedRepo,
   ensureCachedRepo,
@@ -16,7 +18,6 @@ import { rankCandidatesWithDetails, type RankingSummary } from "./rank.js";
 import { elapsedSeconds, startTiming } from "./timing.js";
 import { reapSessions } from "./session.js";
 import type { InstalledSkill, SummonSession } from "./session.js";
-import { trustFields } from "../trust.js";
 
 const DEFAULT_LIMIT = 1;
 const MAX_LIMIT = 5;
@@ -49,6 +50,7 @@ export type SummonOutcome = {
   suites: SuiteAttempt[];
   sessionRoot: string;
   ranking: RankingSummary;
+  cards: string[];
   /** Wall-clock time for this whole invocation, seconds with ms precision. */
   totalSeconds: number;
 };
@@ -57,6 +59,7 @@ type InstallContext = {
   session: SummonSession;
   registry: readonly NamedSkill[];
   payloadCache: PayloadCache;
+  ranking: RankingSummary;
 };
 
 type InstallOutcome = {
@@ -87,7 +90,11 @@ export async function summon(
   if (trimmedQuery.length === 0) {
     throw new Error("Summon query must not be empty.");
   }
-  const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), MAX_LIMIT);
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+    throw new Error(
+      `Summon count must be an integer between 1 and ${MAX_LIMIT}, got: ${limit}`,
+    );
+  }
 
   await reapSessions({ excludeRoots: [session.root] });
   const registry = await service.namedSkills();
@@ -99,6 +106,7 @@ export async function summon(
     session,
     registry,
     payloadCache: new PayloadCache(),
+    ranking: ranked.ranking,
   };
   const summoned: InstalledSkill[] = [];
   const skipped: SkippedCandidate[] = [];
@@ -106,7 +114,7 @@ export async function summon(
   let successCount = 0;
 
   for (const candidate of candidates) {
-    if (successCount >= boundedLimit) break;
+    if (successCount >= limit) break;
 
     const outcome = await installSkill(candidate.id, ctx, new Set());
     summoned.push(...outcome.installed);
@@ -130,6 +138,7 @@ export async function summon(
     suites,
     sessionRoot: session.root,
     ranking: ranked.ranking,
+    cards: summoned.map((skill) => skill.card),
     totalSeconds: elapsedSeconds(runStartedAt),
   };
 }
@@ -344,6 +353,37 @@ async function installSingle(
   }
 
   const { repoUrl, branch, subpath } = parseGithubUrl(githubUrl);
+  const resident = [...ctx.session.skills]
+    .reverse()
+    .find((record) => record.id === skill.id && record.sourceUrl === githubUrl);
+  if (resident && (await isResidentPayload(ctx.session, resident.path))) {
+    const base: Omit<InstalledSkill, "card"> = {
+      ...installedTrust(skill),
+      id: skill.id,
+      name: skill.name,
+      contributor: skill.contributor,
+      sourceUrl: githubUrl,
+      repoUrl,
+      branch,
+      subpath,
+      path: resident.path,
+      fileCount: resident.fileCount,
+      sha256: resident.sha256,
+      cacheState: "warm",
+      cache: "warm",
+      cacheSource: "session",
+      inspectUrl: inspectUrl(githubUrl, repoUrl),
+      cloneSeconds: 0,
+      materializeSeconds: 0,
+      totalSeconds: elapsedSeconds(skillStartedAt),
+    };
+    const installedSkill: InstalledSkill = {
+      ...base,
+      card: renderSummonCard(base, ctx.ranking),
+    };
+    return { ok: true, installed: [installedSkill], suites: [] };
+  }
+
   const sourceStartedAt = startTiming();
   let resolvedCommit: string;
   try {
@@ -361,11 +401,13 @@ async function installSingle(
   let sourceSkillPath = await ctx.payloadCache.lookup(requestedIdentity);
   let retainedIdentity = requestedIdentity;
   let cacheState: "cold" | "warm" = "warm";
+  let cacheSource: "remote" | "payload" = "payload";
   let transientClone: string | undefined;
 
   try {
     if (!sourceSkillPath) {
       cacheState = "cold";
+      cacheSource = "remote";
       const cacheOwner = skill.id.split("/", 1)[0] ?? skill.contributor;
       const repoName = (repoUrl.split("/").pop() ?? repoUrl).replace(
         /\.git$/,
@@ -437,20 +479,11 @@ async function installSingle(
         .catch(() => false);
     }
 
-    const publishedTrust = trustFields(skill);
-    const stars = starCount(skill.level);
-    const installedSkill: InstalledSkill = {
+    const base: Omit<InstalledSkill, "card"> = {
+      ...installedTrust(skill),
       id: skill.id,
       name: skill.name,
       contributor: skill.contributor,
-      ...(skill.level === undefined ? {} : { level: skill.level }),
-      ...(skill.trustMagnitude === undefined
-        ? {}
-        : { trustMagnitude: skill.trustMagnitude }),
-      ...(stars < 0 ? {} : { stars }),
-      ...(Object.keys(publishedTrust).length === 0
-        ? {}
-        : { trust: publishedTrust }),
       sourceUrl: githubUrl,
       repoUrl,
       branch,
@@ -459,9 +492,16 @@ async function installSingle(
       fileCount: materializeOutcome.fileCount,
       sha256: materializeOutcome.sha256,
       cacheState,
+      cache: cacheState,
+      cacheSource,
+      inspectUrl: inspectUrl(githubUrl, repoUrl),
       cloneSeconds,
       materializeSeconds: materializeOutcome.materializeSeconds,
       totalSeconds: elapsedSeconds(skillStartedAt),
+    };
+    const installedSkill: InstalledSkill = {
+      ...base,
+      card: renderSummonCard(base, ctx.ranking),
     };
 
     await ctx.session.recordSkill(installedSkill, { viaSuite });
@@ -469,6 +509,35 @@ async function installSingle(
   } finally {
     if (transientClone) await discardCachedRepo(transientClone);
   }
+}
+
+function installedTrust(
+  skill: NamedSkill,
+): Pick<InstalledSkill, "level" | "trustMagnitude" | "stars" | "trust"> {
+  const publishedTrust = trustFields(skill);
+  const stars = starCount(skill.level);
+  return {
+    ...(skill.level === undefined ? {} : { level: skill.level }),
+    ...(skill.trustMagnitude === undefined
+      ? {}
+      : { trustMagnitude: skill.trustMagnitude }),
+    ...(stars < 0 ? {} : { stars }),
+    ...(Object.keys(publishedTrust).length === 0
+      ? {}
+      : { trust: publishedTrust }),
+  };
+}
+
+async function isResidentPayload(
+  session: SummonSession,
+  payloadPath: string,
+): Promise<boolean> {
+  const relative = path.relative(
+    path.resolve(session.skillsRoot),
+    path.resolve(payloadPath),
+  );
+  if (relative.startsWith("..") || path.isAbsolute(relative)) return false;
+  return pathExists(path.join(payloadPath, "SKILL.md"));
 }
 
 async function pathExists(target: string): Promise<boolean> {

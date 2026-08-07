@@ -11,7 +11,12 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { reapSessions, SummonSession } from "../src/summon/session.js";
+import {
+  findSession,
+  listSessions,
+  reapSessions,
+  SummonSession,
+} from "../src/summon/session.js";
 
 const cleanupRoots: string[] = [];
 
@@ -58,6 +63,49 @@ describe("summon session garbage collection", () => {
 
     expect(outcome.candidates).toHaveLength(1);
     await expect(access(root)).resolves.toBeUndefined();
+  });
+
+  it("lists warm roots and resolves them by id, name, or full root", async () => {
+    const parent = await temporaryParent();
+    const root = await sessionRoot(
+      parent,
+      "reattach",
+      "2026-04-01T11:30:00.000Z",
+      99_999_999,
+    );
+
+    const sessions = await listSessions({ tempRoot: parent });
+
+    expect(sessions).toEqual([
+      {
+        id: "reattach",
+        name: "skill-hell-reattach",
+        root,
+        createdAt: "2026-04-01T11:30:00.000Z",
+        skillCount: 0,
+        skills: [],
+      },
+    ]);
+    await expect(
+      findSession("reattach", { tempRoot: parent }),
+    ).resolves.toMatchObject({
+      root,
+    });
+    await expect(
+      findSession("skill-hell-reattach", { tempRoot: parent }),
+    ).resolves.toMatchObject({ root });
+    await expect(
+      findSession(root, { tempRoot: parent }),
+    ).resolves.toMatchObject({
+      id: "reattach",
+    });
+  });
+
+  it("refuses roots that were not discovered under the session temp directory", async () => {
+    const parent = await temporaryParent();
+    await expect(
+      findSession("/tmp/not-a-listed-skill-session", { tempRoot: parent }),
+    ).rejects.toThrow(/not found/u);
   });
 
   it("close removes the complete owned root", async () => {
