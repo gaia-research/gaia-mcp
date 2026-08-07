@@ -34,7 +34,7 @@ export function createGaiaMcpServer({
     { name: "gaia-mcp", version },
     {
       instructions:
-        "Use gaia_search to discover capabilities, gaia_inspect to verify a candidate with evidence, summon to install the best-matching skill's full directory (SKILL.md plus any reference/, scripts/, and fixtures) into a session-locked temp directory, and gaia_status to check data freshness and capabilities. summon returns cloneSeconds, materializeSeconds, totalSeconds, and cacheState (cold or warm) for every materialized skill, plus totalSeconds for the invocation. The Gaia Registry itself is read-only and cannot be installed into, fused, or mutated; summon does not touch your real configuration. Session payloads are ephemeral; a separate bounded, commit-addressed payload cache may retain copies across sessions and can always be rebuilt on a miss.",
+        "Use gaia_search to discover capabilities, gaia_inspect to verify a candidate with evidence, summon to install the best-matching skill's full directory (SKILL.md plus any reference/, scripts/, and fixtures) into a session-locked temp directory, and gaia_status to check data freshness and capabilities. summon returns a printable card and inspect URL plus cloneSeconds, materializeSeconds, totalSeconds, and cacheState (cold or warm) for every materialized skill, an honest ranking disclosure, and totalSeconds for the invocation. The Gaia Registry itself is read-only and cannot be installed into, fused, or mutated; summon does not touch your real configuration. Session payloads are ephemeral; a separate bounded, commit-addressed payload cache may retain copies across sessions and can always be rebuilt on a miss.",
     },
   );
 
@@ -117,7 +117,7 @@ export function createGaiaMcpServer({
     {
       title: "Summon a Gaia skill",
       description:
-        "Install the best-matching Named Skill from the live Gaia Registry: resolve the current source commit, reuse a bounded commit-addressed payload cache when available, or shallow-clone transiently on a miss; validate the resolved subpath, discard clone scaffolding, then materialize the whole skill directory (SKILL.md plus any reference/, scripts/, and fixtures) into a session-locked temp directory. Recurses into suiteComponents for suite skills. Never writes to your real configuration. Falls through to the next-best candidate on an install failure and reports what was skipped. The structured result includes per-skill cloneSeconds, materializeSeconds, totalSeconds, and cacheState (cold or warm), plus the invocation totalSeconds.",
+        "Install the best-matching Named Skill from the live Gaia Registry: resolve the current source commit, reuse a bounded commit-addressed payload cache when available, or shallow-clone transiently on a miss; validate the resolved subpath, discard clone scaffolding, then materialize the whole skill directory (SKILL.md plus any reference/, scripts/, and fixtures) into a session-locked temp directory. Recurses into suiteComponents for suite skills. Never writes to your real configuration. Falls through to the next-best candidate on an install failure and reports what was skipped. The structured result includes a printable card and inspect URL, tree-provided trust fields, per-skill cloneSeconds, materializeSeconds, totalSeconds, and cacheState (cold or warm), an honest ranking disclosure, plus the invocation totalSeconds.",
       inputSchema: z.object({
         query: z
           .string()

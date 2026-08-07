@@ -33,6 +33,8 @@ Registry directly.
 - `gaia_inspect` — return an evidence-backed skill dossier.
 - `gaia_status` — report server compatibility, Registry freshness, counts, and
   source URLs.
+- `summon` — materialize matching skills into an ephemeral Skill Hell session,
+  with printable cards, inspect links, and explicit ranking provenance.
 
 The first three tools are implemented in read-only Registry mode for `v0.1.0`.
 `gaia_analyze_project` and `gaia_plan_path` arrive with Bonded mode in `v0.2.0`.
@@ -67,6 +69,32 @@ Do not use that npm command until the package appears in the
 
 The public projection endpoints can be overridden for testing with
 `TREE_URL` and `TREE_NAMED_URL`.
+
+## Ambient Skill Hell
+
+The standalone CLI can summon one or several relevant skills without changing the
+current repository or user configuration:
+
+```sh
+skill-hell summon "code review" --card
+skill-hell summon "code review" --count 3
+skill-hell sessions
+# Re-attach in a new shell/session:
+eval "$(skill-hell attach skill-hell-AbCd12)"
+```
+
+`--count` is bounded to 1–5. Every JSON result includes the result card, human-openable
+`inspectUrl`, install timing paired with `cold`/`warm`, and a ranking disclosure. Named
+skills may publish an open `trust` object whose keys display automatically. Numeric
+values—or descriptors such as `{ "value": "aurora", "score": 9 }`—can rank candidates;
+when no comparable trust signal exists, summon explicitly reports relevance-only
+ranking. Gaia's existing `level`, `trustMagnitude`, and `overallTrustGrade` remain
+back-compatible aliases and are adapted into the open bag.
+
+Warm roots remain under `os.tmpdir()` for the configured TTL. `skill-hell sessions`
+lists them and `skill-hell attach` emits the `SKILL_HELL_SESSION` export needed to reuse
+already-materialized payloads. Skill Hell never writes into the current repository,
+`~/.claude`, or permanent skill configuration.
 
 ## Verify
 

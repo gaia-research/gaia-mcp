@@ -26,6 +26,31 @@ The session root is disposable. Materialized skills live under `skills/`; `cache
 transient clone scaffolding and should be empty after each attempt. No user
 configuration is changed.
 
+## Tree-provided trust and ranking
+
+Trust is optional and open-ended. A Named Skill may publish a `trust` object with any
+field names. Scalar values display automatically; a descriptor may provide `value`, a
+human `label`, and a numeric `score`. Numeric scalars, booleans, numeric strings, and
+descriptor scores are comparable; larger scores rank first within the relevance band.
+String-only fields still display but do not pretend to have ordering semantics.
+
+Gaia's established `level`, `trustMagnitude`, and `overallTrustGrade` top-level fields
+remain in JSON for existing consumers and are also adapted into the open bag. A tree
+with no comparable trust fields is ranked by relevance alone, with
+`ranking.mode: "relevance-only"` and an explicit disclosure in JSON and cards. New trust
+keys render through generic key humanization, so adding one does not require engine or
+card changes.
+
+## Ambient result surface
+
+- `skill-hell summon "<intent>" --card` prints one compact context-ready block per skill:
+  name, available trust, ranking provenance, timing paired with cache state, file count,
+  session path, and a human-openable source URL.
+- JSON includes `summoned[].card`, `summoned[].inspectUrl`, the open `trust` bag, legacy
+  Gaia fields, `cache`, `cacheState`, and invocation-level `ranking` and `cards`.
+- `--count N` summons multiple ranked winners. The accepted range is 1–5; values outside
+  it are refused rather than silently clamped. `--limit` remains a compatibility alias.
+
 ## Install parity and deliberate divergence
 
 `/Users/marcotiongson/gaia-skill-tree/src/gaia_cli/install.py` remains the canonical
@@ -74,6 +99,11 @@ not a retained repository followed by `git pull`; comparisons must not mix the t
 - Every `summon` sweeps `skill-hell-*` roots in `os.tmpdir()` before registry work.
 - The default expiry is 4 hours. Set `SKILL_HELL_TTL_HOURS` to a non-negative number.
 - `close` recursively removes the complete owned session root.
+- `skill-hell sessions` lists valid warm roots by manifest id and generated directory
+  name. `skill-hell attach <id|name|root>` emits an export command suitable for `eval`.
+- Re-attaching and summoning an already-resident skill returns `warm/session` with zero
+  clone and materialization time; the manifest path is accepted only when it remains
+  beneath that session's `skills/` root.
 - `skill-hell gc --dry-run` lists expired candidates and byte totals; omit
   `--dry-run` to reap them. `--json` returns the same data structurally.
 - A manifest PID that still responds to signal 0 is always protected, regardless of
@@ -120,13 +150,16 @@ Measured by summoning, closing the entire session, then summoning in a fresh pro
 | `anthropic/skill-creator` | 2.716s / 3.057s | 0.843s / 1.164s | 252 KiB |
 | `vercel/find-skills` | 2.002s / 2.319s | 0.765s / 1.149s | 12 KiB |
 
-Warm skill time includes the remote `ls-remote` freshness check. Invocation time also
-includes live registry loading, which varies independently of payload retention.
+Warm payload-cache skill time includes the remote `ls-remote` freshness check. A warm
+re-attached session root bypasses both remote resolution and materialization for an
+already-resident skill. Invocation time also includes live registry loading, which
+varies independently of payload retention.
 
 ## Timing fields
 
 Each materialized skill records `cloneSeconds`, `materializeSeconds`, `totalSeconds`,
-and `cacheState` in `session.json` and structured results. `cloneSeconds` now measures
+`cacheState`, its back-compatible `cache` alias, and `cacheSource` (`remote`, `payload`,
+or `session`) in `session.json` and structured results. `cloneSeconds` now measures
 source resolution/cache lookup and, on a miss, cloning. `materializeSeconds` measures
 the copy into the session. `totalSeconds` is end-to-end skill installation. The summon
 result also reports invocation `totalSeconds`. Values are seconds at millisecond
@@ -136,7 +169,7 @@ precision; cold and warm observations must remain separate.
 
 - **Session-locked payloads.** Active materializations stay under one temp root.
 - **Bounded cross-session cache.** Only commit-addressed payload copies may outlive it.
-- **Never mutates user config or `~/.gaia/`.**
+- **Never mutates the current repository, user config, `~/.gaia/`, or `~/.claude/`.**
 - **Read-only registry.** Summon never writes back to the Tree.
 - **Untuned ranking.** Higher-rated candidates are preferred; learned weighting is later.
 
