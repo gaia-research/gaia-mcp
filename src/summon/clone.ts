@@ -15,6 +15,11 @@ export type CloneOutcome = {
   warm: boolean;
 };
 
+/** Remove transient clone scaffolding after its payload has been extracted. */
+export async function discardCachedRepo(cacheDir: string): Promise<void> {
+  await rm(cacheDir, { recursive: true, force: true });
+}
+
 /**
  * Ensure repoUrl@branch is checked out at cacheDir, mirroring install.py's
  * `_install_single` caching step: clone if absent, `git pull` if a valid

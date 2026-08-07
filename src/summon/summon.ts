@@ -4,7 +4,7 @@ import path from "node:path";
 import type { NamedSkill } from "../domain/types.js";
 import { starCount } from "../service.js";
 import type { GaiaService } from "../service.js";
-import { ensureCachedRepo } from "./clone.js";
+import { discardCachedRepo, ensureCachedRepo } from "./clone.js";
 import { parseGithubUrl } from "./giturl.js";
 import { materializeSkillDir } from "./materialize.js";
 import { rankCandidates } from "./rank.js";
@@ -177,7 +177,9 @@ function resolveNamedSkillReference(
   const exact = registry.find((skill) => skill.id === cleaned);
   if (exact) return exact;
 
-  const catalogMatches = registry.filter((skill) => skill.catalogRef === cleaned);
+  const catalogMatches = registry.filter(
+    (skill) => skill.catalogRef === cleaned,
+  );
   if (catalogMatches.length === 1) return catalogMatches[0];
   if (catalogMatches.length > 1) {
     throw new Error(`Ambiguous slug '${cleaned}' matches multiple skills.`);
@@ -189,7 +191,9 @@ function resolveNamedSkillReference(
   });
   if (bareMatches.length === 1) return bareMatches[0];
   if (bareMatches.length > 1) {
-    throw new Error(`Ambiguous bare name '${cleaned}' matches multiple skills.`);
+    throw new Error(
+      `Ambiguous bare name '${cleaned}' matches multiple skills.`,
+    );
   }
 
   return undefined;
@@ -223,7 +227,12 @@ async function installSuite(
   let succeededComponents = 0;
 
   for (const componentRef of components) {
-    const result = await installSkill(componentRef, ctx, visited, suiteSkill.id);
+    const result = await installSkill(
+      componentRef,
+      ctx,
+      visited,
+      suiteSkill.id,
+    );
     installed.push(...result.installed);
     nestedSuites.push(...result.suites);
     if (result.ok) {
@@ -232,7 +241,9 @@ async function installSuite(
       const componentMeta = resolveSafely(componentRef, ctx.registry);
       const isNestedSuite = (componentMeta?.suiteComponents?.length ?? 0) > 0;
       failed.push(
-        isNestedSuite ? `${componentRef} (nested suite — see above)` : componentRef,
+        isNestedSuite
+          ? `${componentRef} (nested suite — see above)`
+          : componentRef,
       );
     }
   }
@@ -337,74 +348,78 @@ async function installSingle(
     };
   }
 
-  const sourceSkillPath = path.join(cloneOutcome.path, subpath);
-  let sourceStat;
   try {
-    sourceStat = await stat(sourceSkillPath);
-  } catch {
-    return {
-      ok: false,
-      installed: [],
-      suites: [],
-      reason: `subpath '${subpath}' not found in ${repoUrl}; the link may be stale.`,
-    };
-  }
-  if (!sourceStat.isDirectory()) {
-    return {
-      ok: false,
-      installed: [],
-      suites: [],
-      reason: `links.github for '${skill.id}' points at a file, not a skill directory (${sourceSkillPath}).`,
-    };
-  }
-  if (!(await pathExists(path.join(sourceSkillPath, "SKILL.md")))) {
-    return {
-      ok: false,
-      installed: [],
-      suites: [],
-      reason: `no SKILL.md at ${sourceSkillPath}.`,
-    };
-  }
+    const sourceSkillPath = path.join(cloneOutcome.path, subpath);
+    let sourceStat;
+    try {
+      sourceStat = await stat(sourceSkillPath);
+    } catch {
+      return {
+        ok: false,
+        installed: [],
+        suites: [],
+        reason: `subpath '${subpath}' not found in ${repoUrl}; the link may be stale.`,
+      };
+    }
+    if (!sourceStat.isDirectory()) {
+      return {
+        ok: false,
+        installed: [],
+        suites: [],
+        reason: `links.github for '${skill.id}' points at a file, not a skill directory (${sourceSkillPath}).`,
+      };
+    }
+    if (!(await pathExists(path.join(sourceSkillPath, "SKILL.md")))) {
+      return {
+        ok: false,
+        installed: [],
+        suites: [],
+        reason: `no SKILL.md at ${sourceSkillPath}.`,
+      };
+    }
 
-  const safeId = skill.id.replaceAll("/", "__");
-  const destDir = path.join(ctx.session.skillsRoot, safeId);
+    const safeId = skill.id.replaceAll("/", "__");
+    const destDir = path.join(ctx.session.skillsRoot, safeId);
 
-  let materializeOutcome;
-  try {
-    materializeOutcome = await materializeSkillDir(sourceSkillPath, destDir);
-  } catch (error) {
-    return {
-      ok: false,
-      installed: [],
-      suites: [],
-      reason: `Could not materialize ${sourceSkillPath}: ${errorMessage(error)}`,
+    let materializeOutcome;
+    try {
+      materializeOutcome = await materializeSkillDir(sourceSkillPath, destDir);
+    } catch (error) {
+      return {
+        ok: false,
+        installed: [],
+        suites: [],
+        reason: `Could not materialize ${sourceSkillPath}: ${errorMessage(error)}`,
+      };
+    }
+
+    const installedSkill: InstalledSkill = {
+      id: skill.id,
+      name: skill.name,
+      contributor: skill.contributor,
+      level: skill.level,
+      ...(skill.trustMagnitude === undefined
+        ? {}
+        : { trustMagnitude: skill.trustMagnitude }),
+      stars: starCount(skill.level),
+      sourceUrl: githubUrl,
+      repoUrl,
+      branch,
+      subpath,
+      path: materializeOutcome.path,
+      fileCount: materializeOutcome.fileCount,
+      sha256: materializeOutcome.sha256,
+      cacheState: cloneOutcome.warm ? "warm" : "cold",
+      cloneSeconds: cloneOutcome.cloneSeconds,
+      materializeSeconds: materializeOutcome.materializeSeconds,
+      totalSeconds: elapsedSeconds(skillStartedAt),
     };
+
+    await ctx.session.recordSkill(installedSkill, { viaSuite });
+    return { ok: true, installed: [installedSkill], suites: [] };
+  } finally {
+    await discardCachedRepo(cacheDir);
   }
-
-  const installedSkill: InstalledSkill = {
-    id: skill.id,
-    name: skill.name,
-    contributor: skill.contributor,
-    level: skill.level,
-    ...(skill.trustMagnitude === undefined
-      ? {}
-      : { trustMagnitude: skill.trustMagnitude }),
-    stars: starCount(skill.level),
-    sourceUrl: githubUrl,
-    repoUrl,
-    branch,
-    subpath,
-    path: materializeOutcome.path,
-    fileCount: materializeOutcome.fileCount,
-    sha256: materializeOutcome.sha256,
-    cacheState: cloneOutcome.warm ? "warm" : "cold",
-    cloneSeconds: cloneOutcome.cloneSeconds,
-    materializeSeconds: materializeOutcome.materializeSeconds,
-    totalSeconds: elapsedSeconds(skillStartedAt),
-  };
-
-  await ctx.session.recordSkill(installedSkill, { viaSuite });
-  return { ok: true, installed: [installedSkill], suites: [] };
 }
 
 async function pathExists(target: string): Promise<boolean> {
