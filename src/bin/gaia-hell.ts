@@ -72,7 +72,10 @@ async function runSummon(args: ParsedArgs): Promise<void> {
         result.level,
         result.trustMagnitude,
         result.path,
-        { totalSeconds: result.totalSeconds, cache: result.cache },
+        {
+          totalSeconds: result.totalSeconds,
+          cacheState: result.cacheState,
+        },
       );
     }
     for (const suite of outcome.suites) {
@@ -86,7 +89,7 @@ async function runSummon(args: ParsedArgs): Promise<void> {
         process.stdout.write(`            failed: ${suite.failedComponents.join(", ")}\n`);
       }
     }
-    process.stdout.write(`  total     ${outcome.totalSeconds.toFixed(2)}s\n`);
+    process.stdout.write(`  total     ${outcome.totalSeconds.toFixed(3)}s\n`);
   }
 
   if (outcome.summoned.length === 0) {
@@ -120,7 +123,10 @@ async function runList(args: ParsedArgs): Promise<void> {
       skill.level,
       skill.trustMagnitude,
       skill.path,
-      { totalSeconds: skill.totalSeconds, cache: skill.cache },
+      {
+        totalSeconds: skill.totalSeconds,
+        cacheState: skill.cacheState,
+      },
     );
   }
 }
@@ -178,11 +184,11 @@ function printSkillLine(
   level: string,
   trustMagnitude: number | undefined,
   filePath: string,
-  timing: { totalSeconds: number; cache: "cold" | "warm" },
+  timing: { totalSeconds: number; cacheState: "cold" | "warm" },
 ): void {
   const prefix = `  ${label.padEnd(LABEL_WIDTH)}  `;
   process.stdout.write(
-    `${prefix}${id}  ${level}  TM ${formatTrustMagnitude(trustMagnitude)}  (${timing.totalSeconds.toFixed(2)}s, ${timing.cache})\n`,
+    `${prefix}${id}  ${level}  TM ${formatTrustMagnitude(trustMagnitude)}  (${timing.totalSeconds.toFixed(3)}s, ${timing.cacheState})\n`,
   );
   process.stdout.write(`${" ".repeat(prefix.length)}-> ${filePath}\n`);
 }
