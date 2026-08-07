@@ -34,7 +34,7 @@ export function createGaiaMcpServer({
     { name: "gaia-mcp", version },
     {
       instructions:
-        "Use gaia_search to discover capabilities, gaia_inspect to verify a candidate with evidence, gaia_summon to install the best-matching skill's full directory (SKILL.md plus any reference/, scripts/, and fixtures) into a session-locked temp directory, and gaia_status to check data freshness and capabilities. The Gaia Registry itself is read-only and cannot be installed into, fused, or mutated; gaia_summon does not touch your real configuration either — it writes only inside an ephemeral, session-scoped directory (see the returned sessionRoot) that is never reused across unrelated sessions and is meant to be discarded when the session ends.",
+        "Use gaia_search to discover capabilities, gaia_inspect to verify a candidate with evidence, gaia_summon to install the best-matching skill's full directory (SKILL.md plus any reference/, scripts/, and fixtures) into a session-locked temp directory, and gaia_status to check data freshness and capabilities. gaia_summon returns cloneSeconds, materializeSeconds, totalSeconds, and cacheState (cold or warm) for every materialized skill, plus totalSeconds for the invocation. The Gaia Registry itself is read-only and cannot be installed into, fused, or mutated; gaia_summon does not touch your real configuration either — it writes only inside an ephemeral, session-scoped directory (see the returned sessionRoot) that is never reused across unrelated sessions and is meant to be discarded when the session ends.",
     },
   );
 
@@ -117,7 +117,7 @@ export function createGaiaMcpServer({
     {
       title: "Summon a Gaia skill",
       description:
-        "Install the best-matching Named Skill from the live Gaia Registry the same way `gaia install` does: clone its source repository (session-cached, reused across summons in this session), validate the resolved subpath, then materialize the whole skill directory (SKILL.md plus any reference/, scripts/, and fixtures) into a session-locked temp directory. Recurses into suiteComponents for suite skills. Never writes to your real configuration. Falls through to the next-best candidate on an install failure and reports what was skipped, with per-skill clone/materialize timing and cold/warm cache state.",
+        "Install the best-matching Named Skill from the live Gaia Registry the same way `gaia install` does: clone its source repository (session-cached, reused across summons in this session), validate the resolved subpath, then materialize the whole skill directory (SKILL.md plus any reference/, scripts/, and fixtures) into a session-locked temp directory. Recurses into suiteComponents for suite skills. Never writes to your real configuration. Falls through to the next-best candidate on an install failure and reports what was skipped. The structured result includes per-skill cloneSeconds, materializeSeconds, totalSeconds, and cacheState (cold or warm), plus the invocation totalSeconds.",
       inputSchema: z.object({
         query: z
           .string()
