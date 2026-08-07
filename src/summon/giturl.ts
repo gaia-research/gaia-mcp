@@ -13,7 +13,8 @@ export type ParsedGithubUrl = {
 // Patterns are start-anchored only (mirrors Python's re.match), not
 // end-anchored — the trailing `(.*)` is greedy so it always consumes to the
 // end of the (already trailing-slash-stripped) string anyway.
-const BLOB_URL = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.*)/;
+const BLOB_URL =
+  /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.*)/;
 const TREE_URL = /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)(.*)/;
 const REPO_URL = /^https:\/\/github\.com\/([^/]+)\/([^/]+)/;
 
@@ -41,7 +42,11 @@ export function parseGithubUrl(url: string): ParsedGithubUrl {
       string,
     ];
     const subpath = filePath.endsWith(".md") ? dirname(filePath) : filePath;
-    return { repoUrl: `https://github.com/${owner}/${repo}.git`, branch, subpath };
+    return {
+      repoUrl: `https://github.com/${owner}/${repo}.git`,
+      branch,
+      subpath,
+    };
   }
 
   const treeMatch = TREE_URL.exec(trimmed);
@@ -63,7 +68,11 @@ export function parseGithubUrl(url: string): ParsedGithubUrl {
   const repoMatch = REPO_URL.exec(trimmed);
   if (repoMatch) {
     const [, owner, repo] = repoMatch as unknown as [string, string, string];
-    return { repoUrl: `https://github.com/${owner}/${repo}.git`, branch: null, subpath: "" };
+    return {
+      repoUrl: `https://github.com/${owner}/${repo}.git`,
+      branch: null,
+      subpath: "",
+    };
   }
 
   return { repoUrl: trimmed, branch: null, subpath: "" };

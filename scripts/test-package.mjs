@@ -109,8 +109,8 @@ try {
   await client.connect(transport);
 
   const tools = await client.listTools();
-  if (tools.tools.length !== 3) {
-    throw new Error(`Expected 3 tools, received ${tools.tools.length}.`);
+  if (tools.tools.length !== 4) {
+    throw new Error(`Expected 4 tools, received ${tools.tools.length}.`);
   }
   const result = await client.callTool({
     name: "gaia_search",
