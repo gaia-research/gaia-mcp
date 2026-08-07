@@ -5,9 +5,11 @@ import {
   DEFAULT_NAMED_REGISTRY_URL,
   HttpGaiaRegistrySource,
 } from "../data/source.js";
+import type { TrustFields } from "../domain/types.js";
 import { GaiaService } from "../service.js";
 import { reapSessions, resolveSession } from "../summon/session.js";
 import { summon } from "../summon/summon.js";
+import { displayTrustFields } from "../trust.js";
 
 const LABEL_WIDTH = 8;
 
@@ -71,17 +73,10 @@ async function runSummon(args: ParsedArgs): Promise<void> {
     writeJson(outcome);
   } else {
     for (const result of outcome.summoned) {
-      printSkillLine(
-        "summoned",
-        result.id,
-        result.level,
-        result.trustMagnitude,
-        result.path,
-        {
-          totalSeconds: result.totalSeconds,
-          cacheState: result.cacheState,
-        },
-      );
+      printSkillLine("summoned", result.id, mergedTrust(result), result.path, {
+        totalSeconds: result.totalSeconds,
+        cacheState: result.cacheState,
+      });
     }
     for (const suite of outcome.suites) {
       const label = suite.ok ? "suite" : "suite!";
@@ -126,17 +121,10 @@ async function runList(args: ParsedArgs): Promise<void> {
     return;
   }
   for (const skill of session.skills) {
-    printSkillLine(
-      "resident",
-      skill.id,
-      skill.level,
-      skill.trustMagnitude,
-      skill.path,
-      {
-        totalSeconds: skill.totalSeconds,
-        cacheState: skill.cacheState,
-      },
-    );
+    printSkillLine("resident", skill.id, mergedTrust(skill), skill.path, {
+      totalSeconds: skill.totalSeconds,
+      cacheState: skill.cacheState,
+    });
   }
 }
 
@@ -211,20 +199,37 @@ function noteIfCreated(created: boolean, root: string): void {
 function printSkillLine(
   label: string,
   id: string,
-  level: string,
-  trustMagnitude: number | undefined,
+  trust: TrustFields,
   filePath: string,
   timing: { totalSeconds: number; cacheState: "cold" | "warm" },
 ): void {
   const prefix = `  ${label.padEnd(LABEL_WIDTH)}  `;
+  const renderedTrust = displayTrustFields(trust)
+    .map((field) => `${field.label} ${field.value}`)
+    .join(" · ");
+  const trustSuffix = renderedTrust ? `  ${renderedTrust}` : "";
   process.stdout.write(
-    `${prefix}${id}  ${level}  TM ${formatTrustMagnitude(trustMagnitude)}  (${timing.totalSeconds.toFixed(3)}s, ${timing.cacheState})\n`,
+    `${prefix}${id}${trustSuffix}  (${timing.totalSeconds.toFixed(3)}s, ${timing.cacheState})\n`,
   );
   process.stdout.write(`${" ".repeat(prefix.length)}-> ${filePath}\n`);
 }
 
-function formatTrustMagnitude(value: number | undefined): string {
-  return value === undefined ? "n/a" : value.toFixed(1);
+function mergedTrust(skill: {
+  trust?: TrustFields | undefined;
+  level?: string | undefined;
+  trustMagnitude?: number | undefined;
+}): TrustFields {
+  const trust = { ...(skill.trust ?? {}) };
+  if (skill.level !== undefined && trust.level === undefined) {
+    trust.level = skill.level;
+  }
+  if (
+    skill.trustMagnitude !== undefined &&
+    trust.trustMagnitude === undefined
+  ) {
+    trust.trustMagnitude = skill.trustMagnitude;
+  }
+  return trust;
 }
 
 function formatBytes(bytes: number): string {

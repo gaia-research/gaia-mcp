@@ -180,13 +180,14 @@ export class GaiaService {
           status: skill.status,
           genericSkillRef: skill.genericSkillRef,
           contributor: skill.contributor,
-          level: skill.level,
+          ...(skill.level === undefined ? {} : { level: skill.level }),
           ...(skill.trustMagnitude === undefined
             ? {}
             : { trustMagnitude: skill.trustMagnitude }),
           ...(skill.overallTrustGrade
             ? { overallTrustGrade: skill.overallTrustGrade }
             : {}),
+          ...(skill.trust === undefined ? {} : { trust: skill.trust }),
           evidenceCount: skill.evidence.length,
           installable,
           ...(typeof skill.links.github === "string"
@@ -366,7 +367,7 @@ function toNamedSummary(skill: NamedSkill): NamedSkillSummary {
     name: skill.name,
     ...(skill.title ? { title: skill.title } : {}),
     contributor: skill.contributor,
-    level: skill.level,
+    ...(skill.level === undefined ? {} : { level: skill.level }),
     description: skill.description,
     ...(skill.catalogRef ? { catalogRef: skill.catalogRef } : {}),
     ...(skill.trustMagnitude === undefined
@@ -375,6 +376,7 @@ function toNamedSummary(skill: NamedSkill): NamedSkillSummary {
     ...(skill.overallTrustGrade
       ? { overallTrustGrade: skill.overallTrustGrade }
       : {}),
+    ...(skill.trust === undefined ? {} : { trust: skill.trust }),
     ...(typeof skill.links.github === "string"
       ? { sourceUrl: skill.links.github }
       : {}),

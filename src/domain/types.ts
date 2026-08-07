@@ -27,6 +27,19 @@ export type GenericSkill = {
   updatedAt?: string | undefined;
 };
 
+export type TrustScalar = string | number | boolean;
+
+export type TrustFieldDescriptor = {
+  value: TrustScalar;
+  /** Optional comparable score; larger values rank first. */
+  score?: number | undefined;
+  /** Optional human-facing label used by result cards. */
+  label?: string | undefined;
+};
+
+export type TrustFieldValue = TrustScalar | TrustFieldDescriptor;
+export type TrustFields = Record<string, TrustFieldValue>;
+
 export type NamedSkill = {
   id: string;
   name: string;
@@ -34,7 +47,7 @@ export type NamedSkill = {
   contributor: string;
   genericSkillRef: string;
   status: string;
-  level: string;
+  level?: string | undefined;
   description: string;
   catalogRef?: string | undefined;
   tags: string[];
@@ -42,6 +55,8 @@ export type NamedSkill = {
   evidence: GaiaEvidence[];
   trustMagnitude?: number | undefined;
   overallTrustGrade?: string | undefined;
+  /** Open tree-published trust dimensions; unknown keys pass through unchanged. */
+  trust?: TrustFields | undefined;
   type?: string | undefined;
   updatedAt?: string | undefined;
   /** Registry-only guard: `false` means this skill must refuse to install. */
@@ -132,6 +147,7 @@ export type SearchResultItem = {
   level?: string;
   trustMagnitude?: number;
   overallTrustGrade?: string;
+  trust?: TrustFields;
   evidenceCount: number;
   sourceUrl?: string;
   contributor?: string;
@@ -149,11 +165,12 @@ export type NamedSkillSummary = {
   name: string;
   title?: string;
   contributor: string;
-  level: string;
+  level?: string;
   description: string;
   catalogRef?: string | undefined;
   trustMagnitude?: number;
   overallTrustGrade?: string;
+  trust?: TrustFields;
   sourceUrl?: string;
 };
 

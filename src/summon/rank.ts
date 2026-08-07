@@ -1,60 +1,108 @@
-import { isInstallable, scoreMatch, starCount } from "../service.js";
 import type { NamedSkill } from "../domain/types.js";
+import { isInstallable, scoreMatch } from "../service.js";
+import { trustFields, trustScore } from "../trust.js";
 
-/**
- * Untuned ranking: no learned weighting, just a fixed sort order. Good
- * enough to pick a plausible winner today; real relevance benchmarks come
- * later.
- *
- * Relevance GATES, rating ORDERS. A candidate that does not match the query
- * at all is dropped before rating is considered — otherwise the single
- * highest-rated skill in the registry wins every query regardless of what
- * was asked for, which is what "prefer higher-rated" must not mean.
- * Among candidates that do match, the higher-rated one wins.
- *
- * Uninstallable candidates are filtered out entirely — they can never be
- * summoned regardless of rank.
- */
 /**
  * A lone half-weight substring hit in a description is not a match — it is
  * noise. `scoreMatch` awards weight/2 for any substring occurrence, so a
- * bare `> 0` test admits nearly the whole registry. Require enough signal
- * that at least one weighted field genuinely matched.
+ * bare `> 0` test admits nearly the whole registry.
  */
 const MIN_RELEVANCE = 6;
 
-/**
- * Candidates within this fraction of the best relevance score are treated as
- * equally on-topic, and rating decides between them. Below it, the candidate
- * is off-topic enough that no amount of rating should rescue it.
- */
+/** Candidates below this fraction of the best score are too far off-topic. */
 const RELEVANCE_BAND = 0.5;
 
+export type RankingSummary = {
+  mode: "trust-then-relevance" | "relevance-only";
+  trustFields: string[];
+  disclosure: string;
+};
+
+export type RankedCandidates = {
+  candidates: NamedSkill[];
+  ranking: RankingSummary;
+};
+
+/** Back-compatible candidate-only interface. */
 export function rankCandidates(
   candidates: readonly NamedSkill[],
   query: string,
 ): NamedSkill[] {
+  return rankCandidatesWithDetails(candidates, query).candidates;
+}
+
+/**
+ * Relevance gates candidates. Comparable tree-published trust dimensions then
+ * order the on-topic band; when none exist, relevance alone orders it and the
+ * returned disclosure says so explicitly.
+ */
+export function rankCandidatesWithDetails(
+  candidates: readonly NamedSkill[],
+  query: string,
+): RankedCandidates {
   const scored = candidates
     .filter(isInstallable)
     .map((skill) => ({ skill, relevance: relevanceScore(skill, query) }))
     .filter(({ relevance }) => relevance >= MIN_RELEVANCE);
 
-  if (scored.length === 0) return [];
+  if (scored.length === 0) {
+    return {
+      candidates: [],
+      ranking: relevanceOnlyRanking(),
+    };
+  }
 
   const best = Math.max(...scored.map(({ relevance }) => relevance));
   const onTopic = scored.filter(
     ({ relevance }) => relevance >= best * RELEVANCE_BAND,
   );
+  const fieldOrder = comparableTrustFields(onTopic.map(({ skill }) => skill));
 
-  return onTopic
-    .sort(
-      (left, right) =>
-        starCount(right.skill.level) - starCount(left.skill.level) ||
-        (right.skill.trustMagnitude ?? -1) -
-          (left.skill.trustMagnitude ?? -1) ||
-        right.relevance - left.relevance,
-    )
-    .map(({ skill }) => skill);
+  onTopic.sort((left, right) => {
+    for (const field of fieldOrder) {
+      const leftScore = fieldScore(left.skill, field);
+      const rightScore = fieldScore(right.skill, field);
+      if (leftScore !== rightScore) return rightScore - leftScore;
+    }
+    return right.relevance - left.relevance;
+  });
+
+  return {
+    candidates: onTopic.map(({ skill }) => skill),
+    ranking:
+      fieldOrder.length === 0
+        ? relevanceOnlyRanking()
+        : {
+            mode: "trust-then-relevance",
+            trustFields: fieldOrder,
+            disclosure: `Tree-published trust (${fieldOrder.join(", ")}) orders candidates within the relevance band; relevance breaks ties.`,
+          },
+  };
+}
+
+function comparableTrustFields(skills: readonly NamedSkill[]): string[] {
+  const fields = new Set<string>();
+  for (const skill of skills) {
+    for (const [key, value] of Object.entries(trustFields(skill))) {
+      if (trustScore(key, value) !== undefined) fields.add(key);
+    }
+  }
+  return [...fields];
+}
+
+function fieldScore(skill: NamedSkill, field: string): number {
+  const value = trustFields(skill)[field];
+  if (value === undefined) return Number.NEGATIVE_INFINITY;
+  return trustScore(field, value) ?? Number.NEGATIVE_INFINITY;
+}
+
+function relevanceOnlyRanking(): RankingSummary {
+  return {
+    mode: "relevance-only",
+    trustFields: [],
+    disclosure:
+      "Tree published no comparable trust signals; candidates are ranked by relevance only.",
+  };
 }
 
 function relevanceScore(skill: NamedSkill, query: string): number {

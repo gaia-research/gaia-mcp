@@ -12,10 +12,11 @@ import {
 import { parseGithubUrl } from "./giturl.js";
 import { materializeSkillDir } from "./materialize.js";
 import { PayloadCache } from "./payload-cache.js";
-import { rankCandidates } from "./rank.js";
+import { rankCandidatesWithDetails, type RankingSummary } from "./rank.js";
 import { elapsedSeconds, startTiming } from "./timing.js";
 import { reapSessions } from "./session.js";
 import type { InstalledSkill, SummonSession } from "./session.js";
+import { trustFields } from "../trust.js";
 
 const DEFAULT_LIMIT = 1;
 const MAX_LIMIT = 5;
@@ -47,6 +48,7 @@ export type SummonOutcome = {
   skipped: SkippedCandidate[];
   suites: SuiteAttempt[];
   sessionRoot: string;
+  ranking: RankingSummary;
   /** Wall-clock time for this whole invocation, seconds with ms precision. */
   totalSeconds: number;
 };
@@ -89,7 +91,8 @@ export async function summon(
 
   await reapSessions({ excludeRoots: [session.root] });
   const registry = await service.namedSkills();
-  const candidates = rankCandidates(registry, trimmedQuery);
+  const ranked = rankCandidatesWithDetails(registry, trimmedQuery);
+  const candidates = ranked.candidates;
   await session.ensureRoots();
 
   const ctx: InstallContext = {
@@ -126,6 +129,7 @@ export async function summon(
     skipped,
     suites,
     sessionRoot: session.root,
+    ranking: ranked.ranking,
     totalSeconds: elapsedSeconds(runStartedAt),
   };
 }
@@ -433,15 +437,20 @@ async function installSingle(
         .catch(() => false);
     }
 
+    const publishedTrust = trustFields(skill);
+    const stars = starCount(skill.level);
     const installedSkill: InstalledSkill = {
       id: skill.id,
       name: skill.name,
       contributor: skill.contributor,
-      level: skill.level,
+      ...(skill.level === undefined ? {} : { level: skill.level }),
       ...(skill.trustMagnitude === undefined
         ? {}
         : { trustMagnitude: skill.trustMagnitude }),
-      stars: starCount(skill.level),
+      ...(stars < 0 ? {} : { stars }),
+      ...(Object.keys(publishedTrust).length === 0
+        ? {}
+        : { trust: publishedTrust }),
       sourceUrl: githubUrl,
       repoUrl,
       branch,

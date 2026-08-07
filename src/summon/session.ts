@@ -11,6 +11,8 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import type { TrustFields } from "../domain/types.js";
+
 const SESSION_DIR_PREFIX = "skill-hell-";
 const MANIFEST_FILE = "session.json";
 const DEFAULT_SESSION_TTL_HOURS = 4;
@@ -19,9 +21,10 @@ export type InstalledSkill = {
   id: string;
   name: string;
   contributor: string;
-  level: string;
+  level?: string | undefined;
   trustMagnitude?: number | undefined;
-  stars: number;
+  stars?: number | undefined;
+  trust?: TrustFields | undefined;
   sourceUrl: string;
   repoUrl: string;
   branch: string | null;
