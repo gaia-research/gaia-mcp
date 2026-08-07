@@ -55,7 +55,7 @@ describe("Gaia MCP protocol", () => {
     expect(tools.tools.map((tool) => tool.name)).toEqual([
       "gaia_search",
       "gaia_inspect",
-      "gaia_summon",
+      "summon",
       "gaia_status",
     ]);
 

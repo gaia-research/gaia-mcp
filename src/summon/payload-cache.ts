@@ -189,10 +189,17 @@ function cacheKey(identity: PayloadIdentity): string {
     .digest("hex");
 }
 
+/**
+ * Total size of the payload's FILES. A directory's own inode size is
+ * deliberately excluded: it is platform-dependent — roughly 64 bytes on APFS
+ * but 4096 on ext4 — so counting it makes the cache's size cap mean something
+ * different per platform, and can push a genuinely tiny payload over a small
+ * cap on Linux while it fits on macOS. Only file bytes are the payload.
+ */
 async function directorySize(root: string): Promise<number> {
   const target = await lstat(root);
   if (!target.isDirectory()) return target.size;
-  let bytes = target.size;
+  let bytes = 0;
   for (const entry of await readdir(root)) {
     bytes += await directorySize(path.join(root, entry));
   }

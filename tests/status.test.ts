@@ -43,7 +43,7 @@ describe("GaiaService status", () => {
       contractVersion: "gaia-public-v1",
       freshness: "stale",
       counts: { genericSkills: 1, namedSkills: 0 },
-      tools: ["gaia_search", "gaia_inspect", "gaia_status", "gaia_summon"],
+      tools: ["gaia_search", "gaia_inspect", "gaia_status", "summon"],
       bondedCapabilities: false,
       missingCapabilities: [
         "bonded-local-context",
