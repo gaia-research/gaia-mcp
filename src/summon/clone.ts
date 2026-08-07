@@ -13,6 +13,7 @@ export type CloneOutcome = {
   cloneSeconds: number;
   /** false = freshly cloned ("cold"), true = existing cache reused via pull ("warm"). */
   warm: boolean;
+  commit: string;
 };
 
 /** Remove transient clone scaffolding after its payload has been extracted. */
@@ -54,7 +55,39 @@ export async function ensureCachedRepo(
     }
   }
 
-  return { path: cacheDir, cloneSeconds: elapsedSeconds(startedAt), warm };
+  const commit = await gitOutput(["rev-parse", "HEAD"], cacheDir);
+  return {
+    path: cacheDir,
+    cloneSeconds: elapsedSeconds(startedAt),
+    warm,
+    commit,
+  };
+}
+
+/** Resolve the remote commit so cache lookup cannot silently use a stale branch payload. */
+export async function resolveRemoteCommit(
+  repoUrl: string,
+  branch: string | null,
+): Promise<string> {
+  const refs = branch
+    ? [`refs/heads/${branch}`, `refs/tags/${branch}^{}`, `refs/tags/${branch}`]
+    : ["HEAD"];
+  const output = await gitOutput([
+    "ls-remote",
+    "--exit-code",
+    repoUrl,
+    ...refs,
+  ]);
+  const lines = output.split("\n").filter(Boolean);
+  const preferred = branch
+    ? (lines.find((line) => line.endsWith(`refs/heads/${branch}`)) ??
+      lines.find((line) => line.endsWith(`refs/tags/${branch}^{}`)) ??
+      lines[0])
+    : lines[0];
+  const commit = preferred?.split(/\s+/u)[0];
+  if (!commit)
+    throw new Error(`git ls-remote returned no commit for ${repoUrl}`);
+  return commit;
 }
 
 async function cloneRepo(
@@ -70,8 +103,16 @@ async function cloneRepo(
 }
 
 async function runGit(args: string[], cwd?: string): Promise<void> {
+  await gitOutput(args, cwd);
+}
+
+async function gitOutput(args: string[], cwd?: string): Promise<string> {
   try {
-    await execFileAsync("git", args, { cwd, timeout: GIT_TIMEOUT_MS });
+    const { stdout } = await execFileAsync("git", args, {
+      cwd,
+      timeout: GIT_TIMEOUT_MS,
+    });
+    return stdout.trim();
   } catch (error) {
     throw new Error(`git ${args.join(" ")} failed: ${errorMessage(error)}`);
   }

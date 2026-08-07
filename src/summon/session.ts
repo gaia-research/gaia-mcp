@@ -29,7 +29,7 @@ export type InstalledSkill = {
   path: string;
   fileCount: number;
   sha256: string;
-  /** "cold" = repo cache was freshly cloned; "warm" = an existing cache was reused. */
+  /** "cold" = source fetched; "warm" = commit-addressed payload cache hit. */
   cacheState: "cold" | "warm";
   cloneSeconds: number;
   materializeSeconds: number;
@@ -133,7 +133,7 @@ export class SummonSession {
     return this.#manifest.skills;
   }
 
-  /** Directory under which git caches for this session live: <root>/cache/. */
+  /** Directory for transient clone scaffolding: <root>/cache/. */
   get cacheRoot(): string {
     return path.join(this.root, "cache");
   }

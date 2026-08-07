@@ -4,9 +4,14 @@ import path from "node:path";
 import type { NamedSkill } from "../domain/types.js";
 import { starCount } from "../service.js";
 import type { GaiaService } from "../service.js";
-import { discardCachedRepo, ensureCachedRepo } from "./clone.js";
+import {
+  discardCachedRepo,
+  ensureCachedRepo,
+  resolveRemoteCommit,
+} from "./clone.js";
 import { parseGithubUrl } from "./giturl.js";
 import { materializeSkillDir } from "./materialize.js";
+import { PayloadCache } from "./payload-cache.js";
 import { rankCandidates } from "./rank.js";
 import { elapsedSeconds, startTiming } from "./timing.js";
 import { reapSessions } from "./session.js";
@@ -49,6 +54,7 @@ export type SummonOutcome = {
 type InstallContext = {
   session: SummonSession;
   registry: readonly NamedSkill[];
+  payloadCache: PayloadCache;
 };
 
 type InstallOutcome = {
@@ -86,7 +92,11 @@ export async function summon(
   const candidates = rankCandidates(registry, trimmedQuery);
   await session.ensureRoots();
 
-  const ctx: InstallContext = { session, registry };
+  const ctx: InstallContext = {
+    session,
+    registry,
+    payloadCache: new PayloadCache(),
+  };
   const summoned: InstalledSkill[] = [];
   const skipped: SkippedCandidate[] = [];
   const suites: SuiteAttempt[] = [];
@@ -299,13 +309,9 @@ function resolveSafely(
 }
 
 /**
- * Install a single (non-suite) skill: registry-only guard, source-link
- * guard, clone/update the owning repo into the session cache, validate the
- * resolved subpath (exists, is a directory, contains SKILL.md — a stale
- * links.github must never report success), then materialize the whole
- * directory into the session's skills/ root. Mirrors install.py's
- * `_install_single` exactly, except linking is a copy (see materialize.ts)
- * rather than a symlink/junction, since the session root is disposable.
+ * Install one payload. A commit-addressed retention hit is copied directly;
+ * a miss uses a transient full shallow clone which is discarded in `finally`.
+ * The source subpath is always validated before the session records success.
  */
 async function installSingle(
   skill: NamedSkill,
@@ -334,24 +340,50 @@ async function installSingle(
   }
 
   const { repoUrl, branch, subpath } = parseGithubUrl(githubUrl);
-  const cacheOwner = skill.id.split("/", 1)[0] ?? skill.contributor;
-  const repoName = (repoUrl.split("/").pop() ?? repoUrl).replace(/\.git$/, "");
-  const cacheDir = path.join(ctx.session.cacheRoot, cacheOwner, repoName);
-
-  let cloneOutcome;
+  const sourceStartedAt = startTiming();
+  let resolvedCommit: string;
   try {
-    cloneOutcome = await ensureCachedRepo(cacheDir, repoUrl, branch);
+    resolvedCommit = await resolveRemoteCommit(repoUrl, branch);
   } catch (error) {
     return {
       ok: false,
       installed: [],
       suites: [],
-      reason: `Could not clone ${repoUrl}: ${errorMessage(error)}`,
+      reason: `Could not resolve ${repoUrl}: ${errorMessage(error)}`,
     };
   }
 
+  const requestedIdentity = { repoUrl, commit: resolvedCommit, subpath };
+  let sourceSkillPath = await ctx.payloadCache.lookup(requestedIdentity);
+  let retainedIdentity = requestedIdentity;
+  let cacheState: "cold" | "warm" = "warm";
+  let transientClone: string | undefined;
+
   try {
-    const sourceSkillPath = path.join(cloneOutcome.path, subpath);
+    if (!sourceSkillPath) {
+      cacheState = "cold";
+      const cacheOwner = skill.id.split("/", 1)[0] ?? skill.contributor;
+      const repoName = (repoUrl.split("/").pop() ?? repoUrl).replace(
+        /\.git$/,
+        "",
+      );
+      const cacheDir = path.join(ctx.session.cacheRoot, cacheOwner, repoName);
+      transientClone = cacheDir;
+      let cloneOutcome;
+      try {
+        cloneOutcome = await ensureCachedRepo(cacheDir, repoUrl, branch);
+      } catch (error) {
+        return {
+          ok: false,
+          installed: [],
+          suites: [],
+          reason: `Could not clone ${repoUrl}: ${errorMessage(error)}`,
+        };
+      }
+      sourceSkillPath = path.join(cloneOutcome.path, subpath);
+      retainedIdentity = { repoUrl, commit: cloneOutcome.commit, subpath };
+    }
+
     let sourceStat;
     try {
       sourceStat = await stat(sourceSkillPath);
@@ -380,9 +412,9 @@ async function installSingle(
       };
     }
 
+    const cloneSeconds = elapsedSeconds(sourceStartedAt);
     const safeId = skill.id.replaceAll("/", "__");
     const destDir = path.join(ctx.session.skillsRoot, safeId);
-
     let materializeOutcome;
     try {
       materializeOutcome = await materializeSkillDir(sourceSkillPath, destDir);
@@ -393,6 +425,12 @@ async function installSingle(
         suites: [],
         reason: `Could not materialize ${sourceSkillPath}: ${errorMessage(error)}`,
       };
+    }
+
+    if (cacheState === "cold") {
+      await ctx.payloadCache
+        .store(retainedIdentity, materializeOutcome.path)
+        .catch(() => false);
     }
 
     const installedSkill: InstalledSkill = {
@@ -411,8 +449,8 @@ async function installSingle(
       path: materializeOutcome.path,
       fileCount: materializeOutcome.fileCount,
       sha256: materializeOutcome.sha256,
-      cacheState: cloneOutcome.warm ? "warm" : "cold",
-      cloneSeconds: cloneOutcome.cloneSeconds,
+      cacheState,
+      cloneSeconds,
       materializeSeconds: materializeOutcome.materializeSeconds,
       totalSeconds: elapsedSeconds(skillStartedAt),
     };
@@ -420,7 +458,7 @@ async function installSingle(
     await ctx.session.recordSkill(installedSkill, { viaSuite });
     return { ok: true, installed: [installedSkill], suites: [] };
   } finally {
-    await discardCachedRepo(cacheDir);
+    if (transientClone) await discardCachedRepo(transientClone);
   }
 }
 
