@@ -43,13 +43,12 @@ describe("GaiaService status", () => {
       contractVersion: "gaia-public-v1",
       freshness: "stale",
       counts: { genericSkills: 1, namedSkills: 0 },
-      tools: ["gaia_search", "gaia_inspect", "gaia_status"],
+      tools: ["gaia_search", "gaia_inspect", "gaia_status", "summon"],
       bondedCapabilities: false,
       missingCapabilities: [
         "bonded-local-context",
         "workspace-analysis",
         "progression-paths",
-        "guarded-actions",
       ],
       compatibility: {
         mcpSdk: "@modelcontextprotocol/sdk@1.29.0",

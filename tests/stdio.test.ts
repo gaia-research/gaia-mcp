@@ -92,6 +92,7 @@ describe("gaia-mcp stdio executable", () => {
     expect(tools.tools.map((tool) => tool.name)).toEqual([
       "gaia_search",
       "gaia_inspect",
+      "summon",
       "gaia_status",
     ]);
     const result = await client.callTool({

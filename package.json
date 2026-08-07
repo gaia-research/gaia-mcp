@@ -4,7 +4,8 @@
   "description": "Agent-native discovery and trust interface for the Gaia Skill Tree",
   "type": "module",
   "bin": {
-    "gaia-mcp": "dist/bin/gaia-mcp.js"
+    "gaia-mcp": "dist/bin/gaia-mcp.js",
+    "gaia-hell": "dist/bin/gaia-hell.js"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

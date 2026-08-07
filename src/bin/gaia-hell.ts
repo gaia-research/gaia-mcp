@@ -1,0 +1,302 @@
+#!/usr/bin/env node
+
+import {
+  DEFAULT_GENERIC_REGISTRY_URL,
+  DEFAULT_NAMED_REGISTRY_URL,
+  HttpGaiaRegistrySource,
+} from "../data/source.js";
+import { GaiaService } from "../service.js";
+import { reapSessions, resolveSession } from "../summon/session.js";
+import { summon } from "../summon/summon.js";
+
+const LABEL_WIDTH = 8;
+
+const USAGE = `Usage:
+  gaia-hell summon "<intent>" [--limit N] [--json]
+  gaia-hell list [--json]
+  gaia-hell path [--json]
+  gaia-hell close [--json]
+  gaia-hell gc [--dry-run] [--json]
+`;
+
+class UsageError extends Error {
+  override readonly name = "UsageError";
+}
+
+type ParsedArgs = {
+  command: string;
+  query: string | undefined;
+  limit: number | undefined;
+  json: boolean;
+  dryRun: boolean;
+};
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+  switch (args.command) {
+    case "summon":
+      await runSummon(args);
+      return;
+    case "list":
+      await runList(args);
+      return;
+    case "path":
+      await runPath(args);
+      return;
+    case "close":
+      await runClose(args);
+      return;
+    case "gc":
+      await runGc(args);
+      return;
+    default:
+      throw new UsageError(`Unknown command: ${args.command}\n\n${USAGE}`);
+  }
+}
+
+async function runSummon(args: ParsedArgs): Promise<void> {
+  if (!args.query) {
+    throw new UsageError(`summon requires a query.\n\n${USAGE}`);
+  }
+  const service = createService();
+  const { session, created } = await resolveSession();
+  noteIfCreated(created, session.root);
+
+  const outcome = await summon(service, session, {
+    query: args.query,
+    limit: args.limit,
+  });
+
+  if (args.json) {
+    writeJson(outcome);
+  } else {
+    for (const result of outcome.summoned) {
+      printSkillLine(
+        "summoned",
+        result.id,
+        result.level,
+        result.trustMagnitude,
+        result.path,
+        {
+          totalSeconds: result.totalSeconds,
+          cacheState: result.cacheState,
+        },
+      );
+    }
+    for (const suite of outcome.suites) {
+      const label = suite.ok ? "suite" : "suite!";
+      process.stdout.write(
+        `  ${label.padEnd(LABEL_WIDTH)}  ${suite.suiteId}  ${suite.succeededComponents}/${suite.totalComponents} components` +
+          (suite.rootHasOwnSource
+            ? `, root ${suite.rootInstalled ? "installed" : "failed"}`
+            : "") +
+          "\n",
+      );
+      if (!suite.ok) {
+        process.stdout.write(
+          `            failed: ${suite.failedComponents.join(", ")}\n`,
+        );
+      }
+    }
+    process.stdout.write(`  total     ${outcome.totalSeconds.toFixed(3)}s\n`);
+  }
+
+  if (outcome.summoned.length === 0) {
+    process.stderr.write(
+      `gaia-hell: no skill could be summoned for "${outcome.query}".\n`,
+    );
+    for (const skip of outcome.skipped) {
+      process.stderr.write(`  skipped ${skip.id}: ${skip.reason}\n`);
+    }
+    process.exitCode = 1;
+  }
+}
+
+async function runList(args: ParsedArgs): Promise<void> {
+  const { session, created } = await resolveSession();
+  noteIfCreated(created, session.root);
+
+  if (args.json) {
+    writeJson({ sessionRoot: session.root, skills: session.skills });
+    return;
+  }
+
+  if (session.skills.length === 0) {
+    process.stdout.write("  (no skills summoned in this session)\n");
+    return;
+  }
+  for (const skill of session.skills) {
+    printSkillLine(
+      "resident",
+      skill.id,
+      skill.level,
+      skill.trustMagnitude,
+      skill.path,
+      {
+        totalSeconds: skill.totalSeconds,
+        cacheState: skill.cacheState,
+      },
+    );
+  }
+}
+
+async function runPath(args: ParsedArgs): Promise<void> {
+  const { session, created } = await resolveSession();
+  noteIfCreated(created, session.root);
+
+  if (args.json) {
+    writeJson({ sessionRoot: session.root });
+  } else {
+    process.stdout.write(`${session.root}\n`);
+  }
+}
+
+async function runClose(args: ParsedArgs): Promise<void> {
+  const existingRoot = process.env.GAIA_HELL_SESSION;
+  if (!existingRoot) {
+    if (args.json) {
+      writeJson({ closed: false, reason: "GAIA_HELL_SESSION is not set" });
+    } else {
+      process.stdout.write("  (no active session; nothing to close)\n");
+    }
+    return;
+  }
+
+  const { session } = await resolveSession();
+  await session.close();
+
+  if (args.json) {
+    writeJson({ closed: true, sessionRoot: existingRoot });
+  } else {
+    process.stdout.write(`  closed    ${existingRoot}\n`);
+  }
+}
+
+async function runGc(args: ParsedArgs): Promise<void> {
+  const outcome = await reapSessions({ dryRun: args.dryRun });
+  if (args.json) {
+    writeJson(outcome);
+    return;
+  }
+
+  const action = outcome.dryRun ? "would reap" : "reaped";
+  for (const candidate of outcome.candidates) {
+    process.stdout.write(
+      `  ${action.padEnd(LABEL_WIDTH)}  ${candidate.root}  (${formatBytes(candidate.bytes)}, ${candidate.ageHours.toFixed(1)}h old)\n`,
+    );
+  }
+  if (outcome.candidates.length === 0) {
+    process.stdout.write(`  (no expired abandoned sessions)\n`);
+  }
+  process.stdout.write(
+    `  protected ${outcome.liveProtected.length} live session(s); ${action} ${outcome.candidates.length}, ${formatBytes(outcome.reclaimedBytes)}\n`,
+  );
+}
+
+function createService(): GaiaService {
+  const source = new HttpGaiaRegistrySource({
+    genericUrl: process.env.GAIA_REGISTRY_URL ?? DEFAULT_GENERIC_REGISTRY_URL,
+    namedUrl: process.env.GAIA_NAMED_SKILLS_URL ?? DEFAULT_NAMED_REGISTRY_URL,
+  });
+  return new GaiaService(source);
+}
+
+function noteIfCreated(created: boolean, root: string): void {
+  if (!created) return;
+  process.stderr.write(
+    `gaia-hell: no active session; created one.\ngaia-hell: reuse it across commands with: export GAIA_HELL_SESSION=${root}\n`,
+  );
+}
+
+function printSkillLine(
+  label: string,
+  id: string,
+  level: string,
+  trustMagnitude: number | undefined,
+  filePath: string,
+  timing: { totalSeconds: number; cacheState: "cold" | "warm" },
+): void {
+  const prefix = `  ${label.padEnd(LABEL_WIDTH)}  `;
+  process.stdout.write(
+    `${prefix}${id}  ${level}  TM ${formatTrustMagnitude(trustMagnitude)}  (${timing.totalSeconds.toFixed(3)}s, ${timing.cacheState})\n`,
+  );
+  process.stdout.write(`${" ".repeat(prefix.length)}-> ${filePath}\n`);
+}
+
+function formatTrustMagnitude(value: number | undefined): string {
+  return value === undefined ? "n/a" : value.toFixed(1);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
+}
+
+function writeJson(value: unknown): void {
+  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function parseArgs(argv: string[]): ParsedArgs {
+  const command = argv[0];
+  if (!command) {
+    throw new UsageError(USAGE);
+  }
+  const rest = argv.slice(1);
+  let limit: number | undefined;
+  let json = false;
+  let dryRun = false;
+  const positionals: string[] = [];
+
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i];
+    if (arg === undefined) continue;
+    if (arg === "--json") {
+      json = true;
+      continue;
+    }
+    if (arg === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
+    if (arg === "--limit") {
+      const value = rest[i + 1];
+      if (value === undefined) {
+        throw new UsageError("--limit requires a value.");
+      }
+      limit = parseLimit(value);
+      i++;
+      continue;
+    }
+    if (arg.startsWith("--limit=")) {
+      limit = parseLimit(arg.slice("--limit=".length));
+      continue;
+    }
+    if (arg.startsWith("-")) {
+      throw new UsageError(`Unknown flag: ${arg}\n\n${USAGE}`);
+    }
+    positionals.push(arg);
+  }
+
+  if (dryRun && command !== "gc") {
+    throw new UsageError("--dry-run is only valid with gc.");
+  }
+
+  return { command, query: positionals[0], limit, json, dryRun };
+}
+
+function parseLimit(value: string): number {
+  const limit = Number(value);
+  if (!Number.isInteger(limit) || limit < 1 || limit > 5) {
+    throw new UsageError(
+      `--limit must be an integer between 1 and 5, got: ${value}`,
+    );
+  }
+  return limit;
+}
+
+main().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`gaia-hell: ${message}\n`);
+  process.exitCode = 1;
+});

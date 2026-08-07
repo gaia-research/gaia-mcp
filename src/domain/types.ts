@@ -44,6 +44,10 @@ export type NamedSkill = {
   overallTrustGrade?: string | undefined;
   type?: string | undefined;
   updatedAt?: string | undefined;
+  /** Registry-only guard: `false` means this skill must refuse to install. */
+  installable?: boolean | undefined;
+  /** Skill ids/catalogRefs/bare-names installed recursively as a suite. */
+  suiteComponents?: string[] | undefined;
 };
 
 export type GenericRegistryDocument = {
@@ -180,12 +184,11 @@ export type StatusResult = ResultMetadata & {
     genericSkills: number;
     namedSkills: number;
   };
-  tools: ["gaia_search", "gaia_inspect", "gaia_status"];
+  tools: ["gaia_search", "gaia_inspect", "gaia_status", "summon"];
   bondedCapabilities: false;
   missingCapabilities: [
     "bonded-local-context",
     "workspace-analysis",
     "progression-paths",
-    "guarded-actions",
   ];
 };

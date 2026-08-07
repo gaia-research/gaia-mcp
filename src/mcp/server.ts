@@ -3,6 +3,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import type { GaiaService } from "../service.js";
+import { resolveSession, type SummonSession } from "../summon/session.js";
+import { summon } from "../summon/summon.js";
 import { VERSION } from "../version.js";
 
 export type CreateGaiaMcpServerOptions = {
@@ -17,6 +19,13 @@ const readOnlyAnnotations = {
   openWorldHint: true,
 } as const;
 
+const summonAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: false,
+  openWorldHint: true,
+} as const;
+
 export function createGaiaMcpServer({
   service,
   version = VERSION,
@@ -25,9 +34,15 @@ export function createGaiaMcpServer({
     { name: "gaia-mcp", version },
     {
       instructions:
-        "Use gaia_search to discover capabilities, gaia_inspect to verify a candidate with evidence, and gaia_status to check data freshness. This v0.1 server is read-only Registry mode; it cannot install, fuse, or mutate skills.",
+        "Use gaia_search to discover capabilities, gaia_inspect to verify a candidate with evidence, summon to install the best-matching skill's full directory (SKILL.md plus any reference/, scripts/, and fixtures) into a session-locked temp directory, and gaia_status to check data freshness and capabilities. summon returns cloneSeconds, materializeSeconds, totalSeconds, and cacheState (cold or warm) for every materialized skill, plus totalSeconds for the invocation. The Gaia Registry itself is read-only and cannot be installed into, fused, or mutated; summon does not touch your real configuration. Session payloads are ephemeral; a separate bounded, commit-addressed payload cache may retain copies across sessions and can always be rebuilt on a miss.",
     },
   );
+
+  let sessionPromise: Promise<SummonSession> | undefined;
+  function getSession(): Promise<SummonSession> {
+    sessionPromise ??= resolveSession().then(({ session }) => session);
+    return sessionPromise;
+  }
 
   server.registerTool(
     "gaia_search",
@@ -91,6 +106,31 @@ export function createGaiaMcpServer({
     async ({ id }): Promise<CallToolResult> => {
       try {
         return toolResult(await service.inspect(id));
+      } catch (error) {
+        return toolError(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "summon",
+    {
+      title: "Summon a Gaia skill",
+      description:
+        "Install the best-matching Named Skill from the live Gaia Registry: resolve the current source commit, reuse a bounded commit-addressed payload cache when available, or shallow-clone transiently on a miss; validate the resolved subpath, discard clone scaffolding, then materialize the whole skill directory (SKILL.md plus any reference/, scripts/, and fixtures) into a session-locked temp directory. Recurses into suiteComponents for suite skills. Never writes to your real configuration. Falls through to the next-best candidate on an install failure and reports what was skipped. The structured result includes per-skill cloneSeconds, materializeSeconds, totalSeconds, and cacheState (cold or warm), plus the invocation totalSeconds.",
+      inputSchema: z.object({
+        query: z
+          .string()
+          .min(1)
+          .describe("Task or capability to summon a matching skill for."),
+        limit: z.number().int().min(1).max(5).optional(),
+      }),
+      annotations: summonAnnotations,
+    },
+    async ({ query, limit }): Promise<CallToolResult> => {
+      try {
+        const session = await getSession();
+        return toolResult(await summon(service, session, { query, limit }));
       } catch (error) {
         return toolError(error);
       }
