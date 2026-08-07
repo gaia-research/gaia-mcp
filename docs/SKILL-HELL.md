@@ -5,75 +5,141 @@ Status: **prototype, in progress.** Program 3, EPIC gaia-skill-tree#1336.
 ## What this is
 
 Skill Hell is the high-entropy end of the Skill Heaven ladder. Where Skill Heaven
-*subtracts* context to reach a clean floor, Skill Hell *adds* it — summoning skills
+*subtracts* context to reach a clean floor, Skill Hell *adds* it by summoning skills
 from the live Gaia registry into the running session on demand.
-
-This document tracks the summon engine that lives in `gaia-mcp`.
 
 ## Product shape
 
-`/skill-hell <intent>` →
-1. query the live Gaia Registry and rank matching, installable Named Skills (star level first, then Trust Magnitude — still untuned)
-2. resolve each winner's `links.github` into a repository, branch, and skill subpath
-3. shallow-clone the repository into the session's cache, or pull an existing valid cache
-4. validate that the subpath is a directory containing `SKILL.md`
-5. recursively copy the **whole skill directory** — `SKILL.md` plus `reference/`, `scripts/`, fixtures, and other supporting files — into the **session-locked temp directory**
-6. recursively install every `suiteComponents` entry, including nested suites, and install a suite root's own source when it has one
-7. record the materialized skill, content hash, cache state, and timings in `session.json`, then report what was summoned
+`/skill-hell <intent>`:
 
-The session root is disposable. It contains both the repository cache and the
-materialized `skills/` directories; no user configuration is changed.
+1. query the live Gaia Registry and rank matching, installable Named Skills;
+2. resolve the winner's GitHub URL and current remote commit;
+3. look for that exact `repo + commit + subpath` in the bounded payload cache;
+4. on a miss, make a full shallow clone inside the session, validate the subpath and
+   `SKILL.md`, and copy the whole skill directory;
+5. retain only the extracted payload, subject to the cache cap, and immediately delete
+   the clone in a `finally` block;
+6. recursively install every `suiteComponents` entry; and
+7. record the skill, content hash, cache state, and timings in `session.json`.
 
-## Install parity
+The session root is disposable. Materialized skills live under `skills/`; `cache/` is
+transient clone scaffolding and should be empty after each attempt. No user
+configuration is changed.
 
-`/Users/marcotiongson/gaia-skill-tree/src/gaia_cli/install.py` is the canonical
-reference for install behavior. Skill Hell mirrors these semantics:
+## Install parity and deliberate divergence
 
-- GitHub `blob`, `tree`, and bare-repository URL parsing.
-- Shallow, single-branch clone; `git pull` for a valid cached repository; and
-  removal/re-clone repair for a partial cache or failed pull.
-- Registry-only and missing-source guards, source-subpath validation, and the
-  requirement that the resolved directory contain `SKILL.md`.
-- Whole-directory materialization rather than a single-file fetch.
-- Recursive `suiteComponents`, a visited set for cycle safety, suite failure when
-  any component fails, explicit failed component IDs, and direct installation of
-  a suite root's own `links.github` source without re-entering the suite path.
+`/Users/marcotiongson/gaia-skill-tree/src/gaia_cli/install.py` remains the canonical
+reference. Skill Hell preserves GitHub URL parsing, registry/source guards, whole
+skill-directory materialization, stale-subpath checks, suite recursion, cycle safety,
+and failed-component reporting.
 
-The following canonical CLI behavior is **not ported**: local/global install
-locations, symlink/junction creation, `.gaia/install-manifest.json`, update and
-uninstall commands, and cleanup of installations when their location changes.
-Skill Hell uses a disposable session root and copies files instead. It also
-records a `sha256` for the materialized `SKILL.md`, but deliberately does not
-verify that hash or use it as an admission gate. The canonical `ultimate`
-prerequisite fallback is not implemented; only explicit `suiteComponents` are
-expanded.
+It deliberately no longer preserves `gaia install`'s long-lived repository checkout.
+A cold summon makes a shallow, single-branch clone, extracts the payload, and discards
+the clone. Local/global installs, links, `.gaia/install-manifest.json`, update,
+uninstall, and location migration remain out of scope. The materialized `SKILL.md`
+`sha256` is recorded but deliberately **not verified or used as an admission gate**.
 
-## Timing
+## Clone strategy measurements
 
-Each materialized skill records `cloneSeconds`, `materializeSeconds`,
-`totalSeconds`, and `cacheState` (`"cold"` or `"warm"`) in `session.json` and
-in `--json`/`gaia_summon` results. `cloneSeconds` measures cloning or updating
-the repository; `materializeSeconds` measures copying the skill directory;
-`totalSeconds` is the end-to-end skill install measurement. Each summon
-invocation also reports a run-level `totalSeconds`.
+Measured on this machine against live GitHub on 2026-08-07. Each value is one observed
+run, not an average. “Warm” for discard strategies means a second invocation after the
+first clone was deleted (network/OS warm only). Disk is retained disk after extraction.
 
-Values are seconds at millisecond precision. Cold and warm runs are different
-measurements — a cold clone and a warm cache reuse must never be averaged
-together.
+| skill | approach | disk | cold | warm |
+|---|---|---:|---:|---:|
+| `garrytan/review` | baseline full shallow clone retained | 66.0 MiB | 2.167s | 0.720s |
+|  | full shallow clone + discard | 161 KiB | 2.288s | 2.090s |
+|  | partial sparse clone + discard | 161 KiB | 3.190s | 2.905s |
+| `anthropic/skill-creator` | baseline full shallow clone retained | 13.7 MiB | 1.401s | 0.723s |
+|  | full shallow clone + discard | 220 KiB | 1.450s | 1.486s |
+|  | partial sparse clone + discard | 220 KiB | 2.567s | 2.659s |
+| `vercel/find-skills` | baseline full shallow clone retained | 1.21 MiB | 1.202s | 0.811s |
+|  | full shallow clone + discard | 5.3 KiB | 1.258s | 1.202s |
+|  | partial sparse clone + discard | 5.3 KiB | 2.499s | 2.652s |
 
-## Why it lives here
+Sparse partial checkout reduced transient clone size from 65.8 MiB to 2.41 MiB for
+`garrytan/review`, 13.5 MiB to 456 KiB for `anthropic/skill-creator`, and 1.21 MiB to
+172 KiB for `vercel/find-skills`. It was nevertheless slower for every tested skill,
+because clone and sparse-checkout required separate remote exchanges. Full shallow
+clone + immediate discard therefore landed: it fixes accumulated disk growth and was
+the faster cold path in these measurements. Sparse checkout can be reconsidered if
+Git/GitHub behavior changes or transient peak disk becomes the limiting failure.
 
-`gaia-mcp` already owns registry access: `gaia_search`, `gaia_inspect`, `gaia_status`,
-live-fetching `gaiaskilltree.com/graph/*` with a 5-minute in-memory cache. The summon
-engine is the first *write* path in this repo.
+These results invalidate clone/warm timing numbers recorded before payload retention
+landed. In current results, `cacheState: "warm"` means a commit-addressed payload hit,
+not a retained repository followed by `git pull`; comparisons must not mix the two.
+
+## Session garbage collection
+
+- Every `summon` sweeps `gaia-hell-*` roots in `os.tmpdir()` before registry work.
+- The default expiry is 4 hours. Set `GAIA_HELL_TTL_HOURS` to a non-negative number.
+- `close` recursively removes the complete owned session root.
+- `gaia-hell gc --dry-run` lists expired candidates and byte totals; omit
+  `--dry-run` to reap them. `--json` returns the same data structurally.
+- A manifest PID that still responds to signal 0 is always protected, regardless of
+  age. `EPERM` is treated as live; malformed/missing manifests use directory mtime.
+- The current summon root is explicitly excluded from its own sweep.
+
+An exit handler was considered but rejected: standalone CLI processes intentionally
+exit while their exported `GAIA_HELL_SESSION` remains reusable. An exit hook would
+delete a valid shell session immediately, and it would not address `SIGKILL` anyway.
+TTL reaping is the crash-safe backstop.
+
+## Payload retention
+
+The retained layer is option **(a), a small on-disk payload store**. It defaults to
+`os.tmpdir()/gaia-summon-payload-cache-v1`, outside every session root and outside
+`~/.gaia/`. Set `GAIA_HELL_CACHE_DIR` to make the location explicit. The default cap is
+16 MiB; set `GAIA_HELL_CACHE_MAX_MB` to a non-negative value (zero disables retention).
+Entries are evicted least-recently-used until their total logical size is under the cap.
+Only extracted payloads and small metadata files are retained—never repositories.
+
+Each lookup first resolves the current remote commit and keys the entry by SHA-256 of
+`repo URL + resolved commit SHA + subpath`. A branch change therefore becomes a miss
+rather than silently serving stale content. Missing, evicted, corrupt, manually deleted,
+or OS-purged entries always fall back to the normal clone path. The cache does **not**
+guarantee offline operation, survival across reboot/temp cleanup, or hash verification.
+Hot payloads are normally served from the OS page cache, so this gets memory-like copy
+latency without owning a resident process.
+
+Options **(b)** and **(c)** were investigated but rejected. A macOS RAM disk genuinely
+stores bytes in memory, but requires `hdiutil`/format/mount lifecycle management, is
+platform-specific, disappears on reboot, and adds no meaningful benefit when measured
+payload copies already take milliseconds. A daemon can retain bytes and serve them over
+a Unix socket, but adds process discovery, locking, upgrade, crash, and shutdown failure
+modes merely to avoid a bounded filesystem copy. Both lose to the OS page cache and the
+cache-miss correctness of (a).
+
+### Warm across sessions
+
+Measured by summoning, closing the entire session, then summoning in a fresh process:
+
+| skill | cold skill / invocation | warm skill / invocation | retained payload |
+|---|---:|---:|---:|
+| `garrytan/review` | 2.893s / 4.360s | 0.834s / 1.822s | 188 KiB |
+| `anthropic/skill-creator` | 2.716s / 3.057s | 0.843s / 1.164s | 252 KiB |
+| `vercel/find-skills` | 2.002s / 2.319s | 0.765s / 1.149s | 12 KiB |
+
+Warm skill time includes the remote `ls-remote` freshness check. Invocation time also
+includes live registry loading, which varies independently of payload retention.
+
+## Timing fields
+
+Each materialized skill records `cloneSeconds`, `materializeSeconds`, `totalSeconds`,
+and `cacheState` in `session.json` and structured results. `cloneSeconds` now measures
+source resolution/cache lookup and, on a miss, cloning. `materializeSeconds` measures
+the copy into the session. `totalSeconds` is end-to-end skill installation. The summon
+result also reports invocation `totalSeconds`. Values are seconds at millisecond
+precision; cold and warm observations must remain separate.
 
 ## Constraints
 
-- **Session-locked.** Everything materializes under one temp root, removed on session end.
-- **Never mutates user config.** No writes outside the session root.
-- **Untuned ranking.** Prefer higher-rated, but no learned weighting. Benchmarks come later.
-- **Read-only registry.** The summon path never writes back to the Tree.
+- **Session-locked payloads.** Active materializations stay under one temp root.
+- **Bounded cross-session cache.** Only commit-addressed payload copies may outlive it.
+- **Never mutates user config or `~/.gaia/`.**
+- **Read-only registry.** Summon never writes back to the Tree.
+- **Untuned ranking.** Higher-rated candidates are preferred; learned weighting is later.
 
 ## Not in scope yet
 
-Benchmarks (Hell/Heaven Index scoring), routing eligibility, content-hash admission gates.
+Hell/Heaven Index scoring, routing eligibility, and content-hash admission gates.
