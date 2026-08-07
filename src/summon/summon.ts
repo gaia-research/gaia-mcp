@@ -73,12 +73,12 @@ export async function summon(
   session: SummonSession,
   { query, limit = DEFAULT_LIMIT }: SummonOptions,
 ): Promise<SummonOutcome> {
+  const runStartedAt = startTiming();
   const trimmedQuery = query.trim();
   if (trimmedQuery.length === 0) {
     throw new Error("Summon query must not be empty.");
   }
   const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), MAX_LIMIT);
-  const runStartedAt = startTiming();
 
   const registry = await service.namedSkills();
   const candidates = rankCandidates(registry, trimmedQuery);
