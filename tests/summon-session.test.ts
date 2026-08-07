@@ -44,7 +44,7 @@ describe("summon session garbage collection", () => {
 
   it("reports dry-run candidates without deleting them", async () => {
     const parent = await temporaryParent();
-    const root = path.join(parent, "gaia-hell-malformed");
+    const root = path.join(parent, "skill-hell-malformed");
     await mkdir(root);
     await writeFile(path.join(root, "session.json"), "not json");
     await utimes(root, new Date(0), new Date(0));
@@ -62,7 +62,7 @@ describe("summon session garbage collection", () => {
 
   it("close removes the complete owned root", async () => {
     const parent = await temporaryParent();
-    const root = path.join(parent, "gaia-hell-close");
+    const root = path.join(parent, "skill-hell-close");
     await mkdir(root);
     const session = await SummonSession.createAt(root, "close-test");
     await session.ensureRoots();
@@ -76,7 +76,7 @@ describe("summon session garbage collection", () => {
 });
 
 async function temporaryParent(): Promise<string> {
-  const root = await mkdtemp(path.join(tmpdir(), "gaia-hell-gc-test-"));
+  const root = await mkdtemp(path.join(tmpdir(), "skill-hell-gc-test-"));
   cleanupRoots.push(root);
   return root;
 }
@@ -87,7 +87,7 @@ async function sessionRoot(
   createdAt: string,
   pid: number,
 ): Promise<string> {
-  const root = path.join(parent, `gaia-hell-${name}`);
+  const root = path.join(parent, `skill-hell-${name}`);
   await mkdir(root);
   await writeFile(
     path.join(root, "session.json"),

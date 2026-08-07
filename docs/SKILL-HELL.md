@@ -71,17 +71,17 @@ not a retained repository followed by `git pull`; comparisons must not mix the t
 
 ## Session garbage collection
 
-- Every `summon` sweeps `gaia-hell-*` roots in `os.tmpdir()` before registry work.
-- The default expiry is 4 hours. Set `GAIA_HELL_TTL_HOURS` to a non-negative number.
+- Every `summon` sweeps `skill-hell-*` roots in `os.tmpdir()` before registry work.
+- The default expiry is 4 hours. Set `SKILL_HELL_TTL_HOURS` to a non-negative number.
 - `close` recursively removes the complete owned session root.
-- `gaia-hell gc --dry-run` lists expired candidates and byte totals; omit
+- `skill-hell gc --dry-run` lists expired candidates and byte totals; omit
   `--dry-run` to reap them. `--json` returns the same data structurally.
 - A manifest PID that still responds to signal 0 is always protected, regardless of
   age. `EPERM` is treated as live; malformed/missing manifests use directory mtime.
 - The current summon root is explicitly excluded from its own sweep.
 
 An exit handler was considered but rejected: standalone CLI processes intentionally
-exit while their exported `GAIA_HELL_SESSION` remains reusable. An exit hook would
+exit while their exported `SKILL_HELL_SESSION` remains reusable. An exit hook would
 delete a valid shell session immediately, and it would not address `SIGKILL` anyway.
 TTL reaping is the crash-safe backstop.
 
@@ -89,8 +89,8 @@ TTL reaping is the crash-safe backstop.
 
 The retained layer is option **(a), a small on-disk payload store**. It defaults to
 `os.tmpdir()/gaia-summon-payload-cache-v1`, outside every session root and outside
-`~/.gaia/`. Set `GAIA_HELL_CACHE_DIR` to make the location explicit. The default cap is
-16 MiB; set `GAIA_HELL_CACHE_MAX_MB` to a non-negative value (zero disables retention).
+`~/.gaia/`. Set `SKILL_HELL_CACHE_DIR` to make the location explicit. The default cap is
+16 MiB; set `SKILL_HELL_CACHE_MAX_MB` to a non-negative value (zero disables retention).
 Entries are evicted least-recently-used until their total logical size is under the cap.
 Only extracted payloads and small metadata files are retained—never repositories.
 

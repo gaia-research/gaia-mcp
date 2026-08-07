@@ -1,4 +1,4 @@
-export const GAIA_PUBLIC_CONTRACT_VERSION = "gaia-public-v1" as const;
+export const TREE_CONTRACT_VERSION = "gaia-public-v1" as const;
 
 export type GaiaEvidence = {
   class?: string | undefined;
@@ -83,8 +83,8 @@ export type GaiaRegistrySnapshot = GaiaRegistryDocuments & {
 export type ResultMetadata = {
   serverVersion: string;
   mode: "registry";
-  contractVersion: typeof GAIA_PUBLIC_CONTRACT_VERSION;
-  supportedContractVersions: [typeof GAIA_PUBLIC_CONTRACT_VERSION];
+  contractVersion: typeof TREE_CONTRACT_VERSION;
+  supportedContractVersions: [typeof TREE_CONTRACT_VERSION];
   upstreamDeclaresContractVersion: boolean;
   freshness: "fresh" | "stale";
   dataAgeSeconds: number | null;
@@ -102,7 +102,7 @@ export type ResultMetadata = {
 export type CompatibilityInfo = {
   mcpSdk: "@modelcontextprotocol/sdk@1.29.0";
   mcpProtocolVersions: string[];
-  gaiaPublicData: [typeof GAIA_PUBLIC_CONTRACT_VERSION];
+  gaiaPublicData: [typeof TREE_CONTRACT_VERSION];
   gaiaCli: "none";
   node: ">=22.14.0";
   transports: ["stdio"];

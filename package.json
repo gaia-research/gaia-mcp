@@ -5,7 +5,7 @@
   "type": "module",
   "bin": {
     "gaia-mcp": "dist/bin/gaia-mcp.js",
-    "gaia-hell": "dist/bin/gaia-hell.js"
+    "skill-hell": "dist/bin/skill-hell.js"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

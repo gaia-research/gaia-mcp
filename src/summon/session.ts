@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-const SESSION_DIR_PREFIX = "gaia-hell-";
+const SESSION_DIR_PREFIX = "skill-hell-";
 const MANIFEST_FILE = "session.json";
 const DEFAULT_SESSION_TTL_HOURS = 4;
 
@@ -118,7 +118,7 @@ export class SummonSession {
       raw = await readFile(manifestPath, "utf8");
     } catch (error) {
       throw new Error(
-        `GAIA_HELL_SESSION points at ${root}, but no session manifest was found there: ${errorMessage(error)}`,
+        `SKILL_HELL_SESSION points at ${root}, but no session manifest was found there: ${errorMessage(error)}`,
       );
     }
     const manifest = JSON.parse(raw) as SessionManifest;
@@ -183,15 +183,15 @@ export async function openSession(
 }
 
 /**
- * Reuse the session root named by GAIA_HELL_SESSION if it is set, so
- * multiple gaia-hell invocations in one shell share a session. Otherwise
+ * Reuse the session root named by SKILL_HELL_SESSION if it is set, so
+ * multiple skill-hell invocations in one shell share a session. Otherwise
  * open a fresh session; callers should surface `created` so the invoker
- * knows to export GAIA_HELL_SESSION to keep reusing it.
+ * knows to export SKILL_HELL_SESSION to keep reusing it.
  */
 export async function resolveSession(
   opts: OpenSessionOptions = {},
 ): Promise<ResolveSessionResult> {
-  const existingRoot = process.env.GAIA_HELL_SESSION;
+  const existingRoot = process.env.SKILL_HELL_SESSION;
   if (existingRoot) {
     return {
       session: await SummonSession.loadAt(existingRoot),
@@ -267,12 +267,12 @@ export async function reapSessions(
 }
 
 function sessionTtlHours(): number {
-  const configured = process.env.GAIA_HELL_TTL_HOURS;
+  const configured = process.env.SKILL_HELL_TTL_HOURS;
   if (configured === undefined) return DEFAULT_SESSION_TTL_HOURS;
   const value = Number(configured);
   if (!Number.isFinite(value) || value < 0) {
     throw new Error(
-      `GAIA_HELL_TTL_HOURS must be a non-negative number, got: ${configured}`,
+      `SKILL_HELL_TTL_HOURS must be a non-negative number, got: ${configured}`,
     );
   }
   return value;
