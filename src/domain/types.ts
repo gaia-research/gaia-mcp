@@ -184,7 +184,7 @@ export type StatusResult = ResultMetadata & {
     genericSkills: number;
     namedSkills: number;
   };
-  tools: ["gaia_search", "gaia_inspect", "gaia_status", "gaia_summon"];
+  tools: ["gaia_search", "gaia_inspect", "gaia_status", "summon"];
   bondedCapabilities: false;
   missingCapabilities: [
     "bonded-local-context",
