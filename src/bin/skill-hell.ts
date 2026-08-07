@@ -5,15 +5,24 @@ import {
   DEFAULT_NAMED_REGISTRY_URL,
   HttpGaiaRegistrySource,
 } from "../data/source.js";
+import type { TrustFields } from "../domain/types.js";
 import { GaiaService } from "../service.js";
-import { reapSessions, resolveSession } from "../summon/session.js";
+import {
+  findSession,
+  listSessions,
+  reapSessions,
+  resolveSession,
+} from "../summon/session.js";
 import { summon } from "../summon/summon.js";
+import { displayTrustFields } from "../trust.js";
 
 const LABEL_WIDTH = 8;
 
 const USAGE = `Usage:
-  skill-hell summon "<intent>" [--limit N] [--json]
+  skill-hell summon "<intent>" [--count N] [--card | --json]
   skill-hell list [--json]
+  skill-hell sessions [--json]
+  skill-hell attach <session-id|name|root> [--json]
   skill-hell path [--json]
   skill-hell close [--json]
   skill-hell gc [--dry-run] [--json]
@@ -28,6 +37,7 @@ type ParsedArgs = {
   query: string | undefined;
   limit: number | undefined;
   json: boolean;
+  card: boolean;
   dryRun: boolean;
 };
 
@@ -39,6 +49,12 @@ async function main(): Promise<void> {
       return;
     case "list":
       await runList(args);
+      return;
+    case "sessions":
+      await runSessions(args);
+      return;
+    case "attach":
+      await runAttach(args);
       return;
     case "path":
       await runPath(args);
@@ -69,19 +85,14 @@ async function runSummon(args: ParsedArgs): Promise<void> {
 
   if (args.json) {
     writeJson(outcome);
+  } else if (args.card) {
+    process.stdout.write(`${outcome.cards.join("\n\n")}\n`);
   } else {
     for (const result of outcome.summoned) {
-      printSkillLine(
-        "summoned",
-        result.id,
-        result.level,
-        result.trustMagnitude,
-        result.path,
-        {
-          totalSeconds: result.totalSeconds,
-          cacheState: result.cacheState,
-        },
-      );
+      printSkillLine("summoned", result.id, mergedTrust(result), result.path, {
+        totalSeconds: result.totalSeconds,
+        cacheState: result.cacheState,
+      });
     }
     for (const suite of outcome.suites) {
       const label = suite.ok ? "suite" : "suite!";
@@ -126,17 +137,44 @@ async function runList(args: ParsedArgs): Promise<void> {
     return;
   }
   for (const skill of session.skills) {
-    printSkillLine(
-      "resident",
-      skill.id,
-      skill.level,
-      skill.trustMagnitude,
-      skill.path,
-      {
-        totalSeconds: skill.totalSeconds,
-        cacheState: skill.cacheState,
-      },
+    printSkillLine("resident", skill.id, mergedTrust(skill), skill.path, {
+      totalSeconds: skill.totalSeconds,
+      cacheState: skill.cacheState,
+    });
+  }
+}
+
+async function runSessions(args: ParsedArgs): Promise<void> {
+  await reapSessions();
+  const sessions = await listSessions();
+  if (args.json) {
+    writeJson({ sessions });
+    return;
+  }
+  if (sessions.length === 0) {
+    process.stdout.write("  (no warm sessions)\n");
+    return;
+  }
+  for (const session of sessions) {
+    process.stdout.write(
+      `  ${session.name}  ${session.skillCount} skill(s)  ${session.skills.join(", ") || "empty"}\n`,
     );
+    process.stdout.write(`    -> ${session.root}\n`);
+  }
+}
+
+async function runAttach(args: ParsedArgs): Promise<void> {
+  if (!args.query) {
+    throw new UsageError(
+      `attach requires a session id, name, or root.\n\n${USAGE}`,
+    );
+  }
+  const session = await findSession(args.query);
+  const exportCommand = `export SKILL_HELL_SESSION=${shellQuote(session.root)}`;
+  if (args.json) {
+    writeJson({ session, exportCommand });
+  } else {
+    process.stdout.write(`${exportCommand}\n`);
   }
 }
 
@@ -211,20 +249,41 @@ function noteIfCreated(created: boolean, root: string): void {
 function printSkillLine(
   label: string,
   id: string,
-  level: string,
-  trustMagnitude: number | undefined,
+  trust: TrustFields,
   filePath: string,
   timing: { totalSeconds: number; cacheState: "cold" | "warm" },
 ): void {
   const prefix = `  ${label.padEnd(LABEL_WIDTH)}  `;
+  const renderedTrust = displayTrustFields(trust)
+    .map((field) => `${field.label} ${field.value}`)
+    .join(" · ");
+  const trustSuffix = renderedTrust ? `  ${renderedTrust}` : "";
   process.stdout.write(
-    `${prefix}${id}  ${level}  TM ${formatTrustMagnitude(trustMagnitude)}  (${timing.totalSeconds.toFixed(3)}s, ${timing.cacheState})\n`,
+    `${prefix}${id}${trustSuffix}  (${timing.totalSeconds.toFixed(3)}s, ${timing.cacheState})\n`,
   );
   process.stdout.write(`${" ".repeat(prefix.length)}-> ${filePath}\n`);
 }
 
-function formatTrustMagnitude(value: number | undefined): string {
-  return value === undefined ? "n/a" : value.toFixed(1);
+function mergedTrust(skill: {
+  trust?: TrustFields | undefined;
+  level?: string | undefined;
+  trustMagnitude?: number | undefined;
+}): TrustFields {
+  const trust = { ...(skill.trust ?? {}) };
+  if (skill.level !== undefined && trust.level === undefined) {
+    trust.level = skill.level;
+  }
+  if (
+    skill.trustMagnitude !== undefined &&
+    trust.trustMagnitude === undefined
+  ) {
+    trust.trustMagnitude = skill.trustMagnitude;
+  }
+  return trust;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
 function formatBytes(bytes: number): string {
@@ -245,6 +304,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   const rest = argv.slice(1);
   let limit: number | undefined;
   let json = false;
+  let card = false;
   let dryRun = false;
   const positionals: string[] = [];
 
@@ -255,21 +315,29 @@ function parseArgs(argv: string[]): ParsedArgs {
       json = true;
       continue;
     }
+    if (arg === "--card") {
+      card = true;
+      continue;
+    }
     if (arg === "--dry-run") {
       dryRun = true;
       continue;
     }
-    if (arg === "--limit") {
+    if (arg === "--count" || arg === "--limit") {
       const value = rest[i + 1];
       if (value === undefined) {
-        throw new UsageError("--limit requires a value.");
+        throw new UsageError(`${arg} requires a value.`);
       }
-      limit = parseLimit(value);
+      limit = parseCount(value);
       i++;
       continue;
     }
+    if (arg.startsWith("--count=")) {
+      limit = parseCount(arg.slice("--count=".length));
+      continue;
+    }
     if (arg.startsWith("--limit=")) {
-      limit = parseLimit(arg.slice("--limit=".length));
+      limit = parseCount(arg.slice("--limit=".length));
       continue;
     }
     if (arg.startsWith("-")) {
@@ -281,15 +349,24 @@ function parseArgs(argv: string[]): ParsedArgs {
   if (dryRun && command !== "gc") {
     throw new UsageError("--dry-run is only valid with gc.");
   }
+  if (card && command !== "summon") {
+    throw new UsageError("--card is only valid with summon.");
+  }
+  if (limit !== undefined && command !== "summon") {
+    throw new UsageError("--count is only valid with summon.");
+  }
+  if (card && json) {
+    throw new UsageError("--card and --json cannot be used together.");
+  }
 
-  return { command, query: positionals[0], limit, json, dryRun };
+  return { command, query: positionals[0], limit, json, card, dryRun };
 }
 
-function parseLimit(value: string): number {
+function parseCount(value: string): number {
   const limit = Number(value);
   if (!Number.isInteger(limit) || limit < 1 || limit > 5) {
     throw new UsageError(
-      `--limit must be an integer between 1 and 5, got: ${value}`,
+      `--count must be an integer between 1 and 5, got: ${value}`,
     );
   }
   return limit;

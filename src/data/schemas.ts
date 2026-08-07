@@ -31,6 +31,19 @@ const genericSkillSchema = z
   })
   .passthrough();
 
+const trustFieldSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z
+    .object({
+      value: z.union([z.string(), z.number(), z.boolean()]),
+      score: z.number().optional(),
+      label: z.string().optional(),
+    })
+    .passthrough(),
+]);
+
 const namedSkillSchema = z
   .object({
     id: z.string().min(1),
@@ -39,7 +52,7 @@ const namedSkillSchema = z
     contributor: z.string().min(1),
     genericSkillRef: z.string().min(1),
     status: z.string(),
-    level: z.string(),
+    level: z.string().optional(),
     description: z.string(),
     catalogRef: z.string().min(1).optional(),
     tags: z.array(z.string()).default([]),
@@ -47,6 +60,7 @@ const namedSkillSchema = z
     evidence: z.array(evidenceSchema).default([]),
     trustMagnitude: z.number().optional(),
     overallTrustGrade: z.string().optional(),
+    trust: z.record(trustFieldSchema).optional(),
     type: z.string().optional(),
     updatedAt: z.string().optional(),
     installable: z.boolean().optional(),

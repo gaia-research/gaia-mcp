@@ -11,6 +11,8 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 
+import type { TrustFields } from "../domain/types.js";
+
 const SESSION_DIR_PREFIX = "skill-hell-";
 const MANIFEST_FILE = "session.json";
 const DEFAULT_SESSION_TTL_HOURS = 4;
@@ -19,9 +21,10 @@ export type InstalledSkill = {
   id: string;
   name: string;
   contributor: string;
-  level: string;
+  level?: string | undefined;
   trustMagnitude?: number | undefined;
-  stars: number;
+  stars?: number | undefined;
+  trust?: TrustFields | undefined;
   sourceUrl: string;
   repoUrl: string;
   branch: string | null;
@@ -29,8 +32,13 @@ export type InstalledSkill = {
   path: string;
   fileCount: number;
   sha256: string;
-  /** "cold" = source fetched; "warm" = commit-addressed payload cache hit. */
+  /** "cold" = source fetched; "warm" = payload or resident session hit. */
   cacheState: "cold" | "warm";
+  /** Back-compatible alias consumed by Heaven renderers. */
+  cache: "cold" | "warm";
+  cacheSource: "remote" | "payload" | "session";
+  inspectUrl: string;
+  card: string;
   cloneSeconds: number;
   materializeSeconds: number;
   totalSeconds: number;
@@ -79,6 +87,19 @@ export type ReapSessionOutcome = {
   candidates: ReapedSession[];
   reclaimedBytes: number;
   liveProtected: string[];
+};
+
+export type SessionSummary = {
+  id: string;
+  name: string;
+  root: string;
+  createdAt: string;
+  skillCount: number;
+  skills: string[];
+};
+
+export type ListSessionOptions = {
+  tempRoot?: string | undefined;
 };
 
 /**
@@ -199,6 +220,64 @@ export async function resolveSession(
     };
   }
   return { session: await openSession(opts), created: true };
+}
+
+/** List valid warm roots without creating or mutating a session. */
+export async function listSessions(
+  opts: ListSessionOptions = {},
+): Promise<SessionSummary[]> {
+  const tempRoot = opts.tempRoot ?? tmpdir();
+  let entries;
+  try {
+    entries = await readdir(tempRoot, { withFileTypes: true });
+  } catch (error) {
+    throw new Error(
+      `Could not list session roots in ${tempRoot}: ${errorMessage(error)}`,
+    );
+  }
+
+  const sessions: SessionSummary[] = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !entry.name.startsWith(SESSION_DIR_PREFIX)) {
+      continue;
+    }
+    const root = path.join(tempRoot, entry.name);
+    const manifest = await readManifestSafely(root);
+    if (!manifest) continue;
+    sessions.push({
+      id: manifest.id,
+      name: entry.name,
+      root,
+      createdAt: manifest.createdAt,
+      skillCount: manifest.skills.length,
+      skills: manifest.skills.map((skill) => skill.id),
+    });
+  }
+  return sessions.sort((left, right) =>
+    right.createdAt.localeCompare(left.createdAt),
+  );
+}
+
+/** Resolve a listed session by manifest id, generated directory name, or root. */
+export async function findSession(
+  identifier: string,
+  opts: ListSessionOptions = {},
+): Promise<SessionSummary> {
+  const cleaned = identifier.trim();
+  if (!cleaned) throw new Error("Session identifier must not be empty.");
+  const matches = (await listSessions(opts)).filter(
+    (session) =>
+      session.id === cleaned ||
+      session.name === cleaned ||
+      path.resolve(session.root) === path.resolve(cleaned),
+  );
+  if (matches.length === 0) {
+    throw new Error(`Warm session not found: ${cleaned}`);
+  }
+  if (matches.length > 1) {
+    throw new Error(`Warm session identifier is ambiguous: ${cleaned}`);
+  }
+  return matches[0]!;
 }
 
 /** Remove expired, abandoned session roots while preserving every live PID. */
