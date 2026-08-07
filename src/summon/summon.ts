@@ -53,8 +53,8 @@ type InstallContext = {
 type InstallOutcome = {
   ok: boolean;
   installed: InstalledSkill[];
+  suites: SuiteAttempt[];
   reason?: string;
-  suite?: SuiteAttempt;
 };
 
 /**
@@ -95,7 +95,7 @@ export async function summon(
 
     const outcome = await installSkill(candidate.id, ctx, new Set());
     summoned.push(...outcome.installed);
-    if (outcome.suite) suites.push(outcome.suite);
+    suites.push(...outcome.suites);
 
     if (outcome.ok) {
       successCount++;
@@ -131,19 +131,25 @@ async function installSkill(
   visited: Set<string>,
   viaSuite?: string,
 ): Promise<InstallOutcome> {
-  if (visited.has(ref)) return { ok: true, installed: [] };
+  if (visited.has(ref)) return { ok: true, installed: [], suites: [] };
   visited.add(ref);
 
   let resolved: NamedSkill | undefined;
   try {
     resolved = resolveNamedSkillReference(ref, ctx.registry);
   } catch (error) {
-    return { ok: false, installed: [], reason: errorMessage(error) };
+    return {
+      ok: false,
+      installed: [],
+      suites: [],
+      reason: errorMessage(error),
+    };
   }
   if (!resolved) {
     return {
       ok: false,
       installed: [],
+      suites: [],
       reason: `Skill '${ref}' not found in registry.`,
     };
   }
@@ -212,12 +218,14 @@ async function installSuite(
   viaSuite: string | undefined,
 ): Promise<InstallOutcome> {
   const installed: InstalledSkill[] = [];
+  const nestedSuites: SuiteAttempt[] = [];
   const failed: string[] = [];
   let succeededComponents = 0;
 
   for (const componentRef of components) {
     const result = await installSkill(componentRef, ctx, visited, suiteSkill.id);
     installed.push(...result.installed);
+    nestedSuites.push(...result.suites);
     if (result.ok) {
       succeededComponents++;
     } else {
@@ -229,7 +237,7 @@ async function installSuite(
     }
   }
 
-  const rootHasOwnSource = typeof suiteSkill.links.github === "string";
+  const rootHasOwnSource = Boolean(suiteSkill.links.github);
   let rootInstalled = false;
   if (rootHasOwnSource) {
     const rootResult = await installSingle(suiteSkill, ctx, viaSuite);
@@ -257,7 +265,7 @@ async function installSuite(
   return {
     ok,
     installed,
-    suite,
+    suites: [...nestedSuites, suite],
     ...(ok
       ? {}
       : {
@@ -296,6 +304,7 @@ async function installSingle(
     return {
       ok: false,
       installed: [],
+      suites: [],
       reason: `Skill '${skill.id}' is marked registry-only (installable: false).`,
     };
   }
@@ -306,6 +315,7 @@ async function installSingle(
     return {
       ok: false,
       installed: [],
+      suites: [],
       reason: `Skill '${skill.id}' has no source repository link.`,
     };
   }
@@ -322,6 +332,7 @@ async function installSingle(
     return {
       ok: false,
       installed: [],
+      suites: [],
       reason: `Could not clone ${repoUrl}: ${errorMessage(error)}`,
     };
   }
@@ -334,6 +345,7 @@ async function installSingle(
     return {
       ok: false,
       installed: [],
+      suites: [],
       reason: `subpath '${subpath}' not found in ${repoUrl}; the link may be stale.`,
     };
   }
@@ -341,6 +353,7 @@ async function installSingle(
     return {
       ok: false,
       installed: [],
+      suites: [],
       reason: `links.github for '${skill.id}' points at a file, not a skill directory (${sourceSkillPath}).`,
     };
   }
@@ -348,6 +361,7 @@ async function installSingle(
     return {
       ok: false,
       installed: [],
+      suites: [],
       reason: `no SKILL.md at ${sourceSkillPath}.`,
     };
   }
@@ -362,6 +376,7 @@ async function installSingle(
     return {
       ok: false,
       installed: [],
+      suites: [],
       reason: `Could not materialize ${sourceSkillPath}: ${errorMessage(error)}`,
     };
   }
@@ -389,7 +404,7 @@ async function installSingle(
   };
 
   await ctx.session.recordSkill(installedSkill, { viaSuite });
-  return { ok: true, installed: [installedSkill] };
+  return { ok: true, installed: [installedSkill], suites: [] };
 }
 
 async function pathExists(target: string): Promise<boolean> {
