@@ -80,8 +80,8 @@ describe("gaia-mcp stdio executable", () => {
       env: {
         PATH: process.env.PATH ?? "",
         HOME: process.env.HOME ?? "",
-        GAIA_REGISTRY_URL: `${baseUrl}/generic.json`,
-        GAIA_NAMED_SKILLS_URL: `${baseUrl}/named.json`,
+        TREE_URL: `${baseUrl}/generic.json`,
+        TREE_NAMED_URL: `${baseUrl}/named.json`,
       },
       stderr: "pipe",
     });

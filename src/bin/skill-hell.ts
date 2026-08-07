@@ -12,11 +12,11 @@ import { summon } from "../summon/summon.js";
 const LABEL_WIDTH = 8;
 
 const USAGE = `Usage:
-  gaia-hell summon "<intent>" [--limit N] [--json]
-  gaia-hell list [--json]
-  gaia-hell path [--json]
-  gaia-hell close [--json]
-  gaia-hell gc [--dry-run] [--json]
+  skill-hell summon "<intent>" [--limit N] [--json]
+  skill-hell list [--json]
+  skill-hell path [--json]
+  skill-hell close [--json]
+  skill-hell gc [--dry-run] [--json]
 `;
 
 class UsageError extends Error {
@@ -103,7 +103,7 @@ async function runSummon(args: ParsedArgs): Promise<void> {
 
   if (outcome.summoned.length === 0) {
     process.stderr.write(
-      `gaia-hell: no skill could be summoned for "${outcome.query}".\n`,
+      `skill-hell: no skill could be summoned for "${outcome.query}".\n`,
     );
     for (const skip of outcome.skipped) {
       process.stderr.write(`  skipped ${skip.id}: ${skip.reason}\n`);
@@ -152,10 +152,10 @@ async function runPath(args: ParsedArgs): Promise<void> {
 }
 
 async function runClose(args: ParsedArgs): Promise<void> {
-  const existingRoot = process.env.GAIA_HELL_SESSION;
+  const existingRoot = process.env.SKILL_HELL_SESSION;
   if (!existingRoot) {
     if (args.json) {
-      writeJson({ closed: false, reason: "GAIA_HELL_SESSION is not set" });
+      writeJson({ closed: false, reason: "SKILL_HELL_SESSION is not set" });
     } else {
       process.stdout.write("  (no active session; nothing to close)\n");
     }
@@ -195,8 +195,8 @@ async function runGc(args: ParsedArgs): Promise<void> {
 
 function createService(): GaiaService {
   const source = new HttpGaiaRegistrySource({
-    genericUrl: process.env.GAIA_REGISTRY_URL ?? DEFAULT_GENERIC_REGISTRY_URL,
-    namedUrl: process.env.GAIA_NAMED_SKILLS_URL ?? DEFAULT_NAMED_REGISTRY_URL,
+    genericUrl: process.env.TREE_URL ?? DEFAULT_GENERIC_REGISTRY_URL,
+    namedUrl: process.env.TREE_NAMED_URL ?? DEFAULT_NAMED_REGISTRY_URL,
   });
   return new GaiaService(source);
 }
@@ -204,7 +204,7 @@ function createService(): GaiaService {
 function noteIfCreated(created: boolean, root: string): void {
   if (!created) return;
   process.stderr.write(
-    `gaia-hell: no active session; created one.\ngaia-hell: reuse it across commands with: export GAIA_HELL_SESSION=${root}\n`,
+    `skill-hell: no active session; created one.\nskill-hell: reuse it across commands with: export SKILL_HELL_SESSION=${root}\n`,
   );
 }
 
@@ -297,6 +297,6 @@ function parseLimit(value: string): number {
 
 main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`gaia-hell: ${message}\n`);
+  process.stderr.write(`skill-hell: ${message}\n`);
   process.exitCode = 1;
 });

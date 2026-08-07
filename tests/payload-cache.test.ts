@@ -22,13 +22,13 @@ afterEach(async () => {
 
 describe("payload retention cache", () => {
   it("uses a default root that the session reaper cannot mistake for a session", () => {
-    const configured = process.env.GAIA_HELL_CACHE_DIR;
-    delete process.env.GAIA_HELL_CACHE_DIR;
+    const configured = process.env.SKILL_HELL_CACHE_DIR;
+    delete process.env.SKILL_HELL_CACHE_DIR;
     try {
-      expect(path.basename(payloadCacheRoot())).not.toMatch(/^gaia-hell-/u);
+      expect(path.basename(payloadCacheRoot())).not.toMatch(/^skill-hell-/u);
     } finally {
       if (configured !== undefined)
-        process.env.GAIA_HELL_CACHE_DIR = configured;
+        process.env.SKILL_HELL_CACHE_DIR = configured;
     }
   });
 

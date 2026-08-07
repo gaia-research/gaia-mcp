@@ -2,7 +2,7 @@ import { SUPPORTED_PROTOCOL_VERSIONS } from "@modelcontextprotocol/sdk/types.js"
 
 import type { GaiaRegistrySource } from "./data/source.js";
 import {
-  GAIA_PUBLIC_CONTRACT_VERSION,
+  TREE_CONTRACT_VERSION,
   type GaiaRegistrySnapshot,
   type InspectResult,
   type NamedSkill,
@@ -313,11 +313,11 @@ export class GaiaService {
     const upstreamDeclaresContractVersion = [
       snapshot.generic.contractVersion ?? snapshot.generic.schemaVersion,
       snapshot.named.contractVersion ?? snapshot.named.schemaVersion,
-    ].every((version) => version === GAIA_PUBLIC_CONTRACT_VERSION);
+    ].every((version) => version === TREE_CONTRACT_VERSION);
     const warnings: string[] = [];
     if (!upstreamDeclaresContractVersion) {
       warnings.push(
-        `Gaia's public projections do not both advertise a contract version. Compatibility is being enforced by the ${GAIA_PUBLIC_CONTRACT_VERSION} shape adapter; verify the source URLs before stateful follow-up work.`,
+        `Gaia's public projections do not both advertise a contract version. Compatibility is being enforced by the ${TREE_CONTRACT_VERSION} shape adapter; verify the source URLs before stateful follow-up work.`,
       );
     }
     if (stale) {
@@ -331,8 +331,8 @@ export class GaiaService {
     return {
       serverVersion: this.#serverVersion,
       mode: "registry",
-      contractVersion: GAIA_PUBLIC_CONTRACT_VERSION,
-      supportedContractVersions: [GAIA_PUBLIC_CONTRACT_VERSION],
+      contractVersion: TREE_CONTRACT_VERSION,
+      supportedContractVersions: [TREE_CONTRACT_VERSION],
       upstreamDeclaresContractVersion,
       freshness: stale ? "stale" : "fresh",
       dataAgeSeconds,
@@ -346,7 +346,7 @@ export class GaiaService {
       compatibility: {
         mcpSdk: "@modelcontextprotocol/sdk@1.29.0",
         mcpProtocolVersions: [...SUPPORTED_PROTOCOL_VERSIONS],
-        gaiaPublicData: [GAIA_PUBLIC_CONTRACT_VERSION],
+        gaiaPublicData: [TREE_CONTRACT_VERSION],
         gaiaCli: "none",
         node: ">=22.14.0",
         transports: ["stdio"],

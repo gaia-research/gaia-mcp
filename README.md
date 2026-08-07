@@ -66,7 +66,7 @@ Do not use that npm command until the package appears in the
 [Gaia MCP releases](https://github.com/gaia-research/gaia-mcp/releases).
 
 The public projection endpoints can be overridden for testing with
-`GAIA_REGISTRY_URL` and `GAIA_NAMED_SKILLS_URL`.
+`TREE_URL` and `TREE_NAMED_URL`.
 
 ## Verify
 

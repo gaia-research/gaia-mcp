@@ -12,8 +12,8 @@ import { GaiaService } from "../service.js";
 
 async function main(): Promise<void> {
   const source = new HttpGaiaRegistrySource({
-    genericUrl: process.env.GAIA_REGISTRY_URL ?? DEFAULT_GENERIC_REGISTRY_URL,
-    namedUrl: process.env.GAIA_NAMED_SKILLS_URL ?? DEFAULT_NAMED_REGISTRY_URL,
+    genericUrl: process.env.TREE_URL ?? DEFAULT_GENERIC_REGISTRY_URL,
+    namedUrl: process.env.TREE_NAMED_URL ?? DEFAULT_NAMED_REGISTRY_URL,
   });
   const service = new GaiaService(source);
   const server = createGaiaMcpServer({ service });

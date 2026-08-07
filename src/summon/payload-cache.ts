@@ -166,16 +166,18 @@ export class PayloadCache {
 }
 
 export function payloadCacheRoot(): string {
-  return process.env.GAIA_HELL_CACHE_DIR ?? path.join(tmpdir(), CACHE_DIR_NAME);
+  return (
+    process.env.SKILL_HELL_CACHE_DIR ?? path.join(tmpdir(), CACHE_DIR_NAME)
+  );
 }
 
 function payloadCacheMaxBytes(): number {
-  const configured = process.env.GAIA_HELL_CACHE_MAX_MB;
+  const configured = process.env.SKILL_HELL_CACHE_MAX_MB;
   if (configured === undefined) return DEFAULT_CACHE_MAX_MB * 1024 ** 2;
   const megabytes = Number(configured);
   if (!Number.isFinite(megabytes) || megabytes < 0) {
     throw new Error(
-      `GAIA_HELL_CACHE_MAX_MB must be a non-negative number, got: ${configured}`,
+      `SKILL_HELL_CACHE_MAX_MB must be a non-negative number, got: ${configured}`,
     );
   }
   return Math.floor(megabytes * 1024 ** 2);
