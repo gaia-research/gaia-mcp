@@ -166,7 +166,9 @@ export class PayloadCache {
 }
 
 export function payloadCacheRoot(): string {
-  return process.env.SKILL_HELL_CACHE_DIR ?? path.join(tmpdir(), CACHE_DIR_NAME);
+  return (
+    process.env.SKILL_HELL_CACHE_DIR ?? path.join(tmpdir(), CACHE_DIR_NAME)
+  );
 }
 
 function payloadCacheMaxBytes(): number {
