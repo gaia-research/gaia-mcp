@@ -3,12 +3,14 @@ import { mkdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import { elapsedSeconds, startTiming } from "./timing.js";
+
 const execFileAsync = promisify(execFile);
 const GIT_TIMEOUT_MS = 60_000;
 
 export type CloneOutcome = {
   path: string;
-  seconds: number;
+  cloneSeconds: number;
   /** false = freshly cloned ("cold"), true = existing cache reused via pull ("warm"). */
   warm: boolean;
 };
@@ -24,7 +26,7 @@ export async function ensureCachedRepo(
   repoUrl: string,
   branch: string | null,
 ): Promise<CloneOutcome> {
-  const start = Date.now();
+  const startedAt = startTiming();
 
   const exists = await pathExists(cacheDir);
   const validRepo = exists && (await pathExists(path.join(cacheDir, ".git")));
@@ -47,7 +49,7 @@ export async function ensureCachedRepo(
     }
   }
 
-  return { path: cacheDir, seconds: (Date.now() - start) / 1000, warm };
+  return { path: cacheDir, cloneSeconds: elapsedSeconds(startedAt), warm };
 }
 
 async function cloneRepo(

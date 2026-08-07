@@ -8,6 +8,7 @@ import { ensureCachedRepo } from "./clone.js";
 import { parseGithubUrl } from "./giturl.js";
 import { materializeSkillDir } from "./materialize.js";
 import { rankCandidates } from "./rank.js";
+import { elapsedSeconds, startTiming } from "./timing.js";
 import type { InstalledSkill, SummonSession } from "./session.js";
 
 const DEFAULT_LIMIT = 1;
@@ -77,7 +78,7 @@ export async function summon(
     throw new Error("Summon query must not be empty.");
   }
   const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), MAX_LIMIT);
-  const runStart = Date.now();
+  const runStartedAt = startTiming();
 
   const registry = await service.namedSkills();
   const candidates = rankCandidates(registry, trimmedQuery);
@@ -113,7 +114,7 @@ export async function summon(
     skipped,
     suites,
     sessionRoot: session.root,
-    totalSeconds: (Date.now() - runStart) / 1000,
+    totalSeconds: elapsedSeconds(runStartedAt),
   };
 }
 
@@ -290,6 +291,7 @@ async function installSingle(
   ctx: InstallContext,
   viaSuite?: string,
 ): Promise<InstallOutcome> {
+  const skillStartedAt = startTiming();
   if (skill.installable === false) {
     return {
       ok: false,
@@ -379,10 +381,11 @@ async function installSingle(
     subpath,
     path: materializeOutcome.path,
     fileCount: materializeOutcome.fileCount,
-    cache: cloneOutcome.warm ? "warm" : "cold",
-    cloneSeconds: cloneOutcome.seconds,
-    materializeSeconds: materializeOutcome.seconds,
-    totalSeconds: cloneOutcome.seconds + materializeOutcome.seconds,
+    sha256: materializeOutcome.sha256,
+    cacheState: cloneOutcome.warm ? "warm" : "cold",
+    cloneSeconds: cloneOutcome.cloneSeconds,
+    materializeSeconds: materializeOutcome.materializeSeconds,
+    totalSeconds: elapsedSeconds(skillStartedAt),
   };
 
   await ctx.session.recordSkill(installedSkill, { viaSuite });

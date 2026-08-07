@@ -19,8 +19,9 @@ export type InstalledSkill = {
   subpath: string;
   path: string;
   fileCount: number;
+  sha256: string;
   /** "cold" = repo cache was freshly cloned; "warm" = an existing cache was reused. */
-  cache: "cold" | "warm";
+  cacheState: "cold" | "warm";
   cloneSeconds: number;
   materializeSeconds: number;
   totalSeconds: number;

@@ -1,10 +1,14 @@
-import { cp, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { cp, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
+
+import { elapsedSeconds, startTiming } from "./timing.js";
 
 export type MaterializeOutcome = {
   path: string;
-  seconds: number;
+  materializeSeconds: number;
   fileCount: number;
+  sha256: string;
 };
 
 /**
@@ -20,13 +24,16 @@ export async function materializeSkillDir(
   sourceDir: string,
   destDir: string,
 ): Promise<MaterializeOutcome> {
-  const start = Date.now();
+  const startedAt = startTiming();
   await cp(sourceDir, destDir, {
     recursive: true,
     filter: (source) => path.basename(source) !== ".git",
   });
+  const materializeSeconds = elapsedSeconds(startedAt);
+  const skillContent = await readFile(path.join(destDir, "SKILL.md"));
+  const sha256 = createHash("sha256").update(skillContent).digest("hex");
   const fileCount = await countFiles(destDir);
-  return { path: destDir, seconds: (Date.now() - start) / 1000, fileCount };
+  return { path: destDir, materializeSeconds, fileCount, sha256 };
 }
 
 async function countFiles(dir: string): Promise<number> {
