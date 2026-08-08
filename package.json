@@ -1,6 +1,6 @@
 {
   "name": "@gaia-research/mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Agent-native discovery and trust interface for the Gaia Skill Tree",
   "type": "module",
   "bin": {
