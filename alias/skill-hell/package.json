@@ -18,7 +18,11 @@
   },
   "homepage": "https://gaia-research.github.io/skill-heaven/",
   "bugs": "https://github.com/gaia-research/gaia-mcp/issues",
+  "bin": {
+    "skill-hell": "bin/skill-hell.mjs"
+  },
   "files": [
+    "bin",
     "README.md"
   ],
   "engines": {

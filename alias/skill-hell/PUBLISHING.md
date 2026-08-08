@@ -32,13 +32,28 @@ silently resolve to an engine this pointer was never tested against.
 That means the two versions move together. When the engine releases, bump this package's
 `version` and its pinned dependency to match, in the same PR.
 
-## Why there is no code here
+## Why there is a `bin/skill-hell.mjs` shim
 
-npm links the dependency's `skill-hell` binary into `.bin` on install, so `npx skill-hell`
-reaches the real engine with no wrapper. An earlier draft shipped a forwarding shim;
-testing showed npm links the dependency's bin regardless, making the shim unreachable. It
-was deleted rather than published as dead code.
+`npm install skill-hell` does link the dependency's `skill-hell` binary into `.bin` — that
+part was never in question. But `npx skill-hell` (and `npm exec skill-hell`) with nothing
+pre-installed is a different code path: npm decides what to run by reading the *requested*
+package's own `bin` field (`libnpmexec/get-bin-from-manifest.js`), not a hoisted
+dependency's. `skill-hell` had no `bin` field of its own, so cold `npx skill-hell` failed
+with `could not determine executable to run` — verified against the published
+`skill-hell@0.3.0` tarball.
 
-Verified against a packed tarball installed into a clean directory:
-`npm exec -- skill-hell summon "release notes" --card` summoned
-`garrytan/document-release` (2★, TM 36) in 3.4s cold.
+An earlier draft shipped a forwarding shim and it was deleted as dead code; that
+conclusion was reached by testing via `npm exec -- skill-hell ...` from inside a directory
+that already had the package `npm install`ed, which resolves the local `.bin` entry
+directly and never exercises manifest-bin lookup either way — so the shim's absence never
+showed up. The true cold path (no prior install — the entire advertised `npx skill-hell`
+UX) was never actually tested.
+
+`bin/skill-hell.mjs` resolves `@gaia-research/mcp`'s installed location via
+`import.meta.resolve` and dynamically imports its real `dist/bin/skill-hell.js`, so this
+package still ships no CLI logic of its own — just enough indirection for npm's bin
+resolution to find something to run.
+
+Verified against a packed tarball, `npx --package=<tarball> -- skill-hell --help` (the
+same manifest-bin-lookup path a real cold `npx skill-hell` takes) now resolves and forwards
+correctly.
