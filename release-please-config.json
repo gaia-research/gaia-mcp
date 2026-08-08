@@ -12,6 +12,10 @@
           "path": "src/version.ts"
         }
       ]
+    },
+    "alias/skill-hell": {
+      "package-name": "skill-hell",
+      "initial-version": "0.3.0"
     }
   }
 }
