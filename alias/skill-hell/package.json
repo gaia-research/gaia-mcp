@@ -1,0 +1,30 @@
+{
+  "name": "skill-hell",
+  "version": "0.3.0",
+  "description": "Summon a skill into your session instead of installing it. The npx-friendly name for @gaia-research/mcp's skill-hell binary. WORKING PROTOTYPE, actively tested for public use.",
+  "keywords": [
+    "skills",
+    "agent",
+    "claude",
+    "mcp",
+    "skill-hell",
+    "skill-heaven"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gaia-research/gaia-mcp.git",
+    "directory": "alias/skill-hell"
+  },
+  "homepage": "https://gaia-research.github.io/skill-heaven/",
+  "bugs": "https://github.com/gaia-research/gaia-mcp/issues",
+  "files": [
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@gaia-research/mcp": "0.3.0"
+  }
+}
