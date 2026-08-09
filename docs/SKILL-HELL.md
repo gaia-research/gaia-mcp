@@ -1,6 +1,29 @@
 # Skill Hell — summon engine (prototype)
 
-Status: **prototype, in progress.** Program 3, EPIC gaia-skill-tree#1336.
+Status: **working prototype.** [`@gaia-research/mcp@0.4.0`](https://github.com/gaia-research/gaia-mcp/releases/tag/mcp-v0.4.0)
+and the npx-friendly `skill-hell@0.4.0` alias are published. The engine is not
+a shipped Hell/Heaven scoring, routing-eligibility, or content-hash admission
+system.
+
+## Packages and commands
+
+Use the alias for a one-shot summon:
+
+```sh
+npx --yes skill-hell@latest summon "code review" --card
+```
+
+The rich package registers two binaries, so select the intended one explicitly:
+
+```sh
+npx --yes --package=@gaia-research/mcp@latest skill-hell summon "code review" --card
+npx --yes --package=@gaia-research/mcp@latest gaia-mcp
+```
+
+The current MCP package tools are `gaia_search`, `gaia_inspect`, `summon`, and
+`gaia_status`. `summon` is the current name; `gaia_summon` is not a current
+tool. D4's thin `search_skills` + `summon` Heaven/Summon profile is a separate
+profile/dose constraint, not a description of this four-tool package.
 
 ## What this is
 
@@ -40,6 +63,10 @@ with no comparable trust fields is ranked by relevance alone, with
 `ranking.mode: "relevance-only"` and an explicit disclosure in JSON and cards. New trust
 keys render through generic key humanization, so adding one does not require engine or
 card changes.
+
+This ordering is local to a summon invocation. It is not a Hell/Heaven score,
+routing eligibility decision, or content-hash admission or verification rule;
+those capabilities are not shipped.
 
 ## Ambient result surface
 
