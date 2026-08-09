@@ -1,23 +1,48 @@
 # Versioning and Releases
 
 Gaia MCP uses independent [Semantic Versioning](https://semver.org/). Its
-version is never locked to Gaia Skill Tree, `gaia-cli`, the public-data version,
+version is never locked to Gaia Skill Tree, `gaia-cli`, a public-data version,
 or the Gaia Research website.
 
-## Version line
+## Current published line
 
-- `0.1.x` — read-only Registry discovery and inspection;
-- `0.2.x` — Bonded local context;
-- `0.3.x` — guarded actions;
-- `0.4.x` — canonical consumer migrations and retirement of duplicates;
+[`@gaia-research/mcp@0.4.0`](https://github.com/gaia-research/gaia-mcp/releases/tag/mcp-v0.4.0)
+was published on 2026-08-08. The current rich package surface is
+`gaia_search`, `gaia_inspect`, `summon`, and `gaia_status`; see
+[COMPATIBILITY.md](COMPATIBILITY.md) for the release contract.
+
+The npx-friendly `skill-hell@0.4.0` alias is also published. It is a separate
+package with its own `skill-hell` binary; the rich package itself registers the
+two binaries `gaia-mcp` and `skill-hell`.
+
+Public commands use `@latest` and select a binary explicitly:
+
+```sh
+# MCP server
+npx --yes --package=@gaia-research/mcp@latest gaia-mcp
+
+# One-shot Skill Hell alias
+npx --yes skill-hell@latest summon "code review" --card
+```
+
+## Historical planning labels
+
+The original roadmap used these planning labels:
+
+- `0.1.x` — trusted discovery;
+- `0.2.x` — Bonded local-context target;
+- `0.3.x` — guarded-actions target;
+- `0.4.x` — canonical-consumer target;
 - `1.0.0` — stable tool names, result schemas, compatibility policy, and
   deprecation guarantees.
 
-Pre-release tags use standard SemVer identifiers:
+They are retained as planning history, not as a feature inventory for a
+published version. The current package contract is the four-tool 0.4.0 surface
+above. In particular, a future thin Heaven/Summon profile does not retroactively
+rename or deprecate the package's Registry/Bond tools.
 
-- `v0.1.0-alpha.1` for incomplete integration builds;
-- `v0.1.0-beta.1` for feature-complete client testing;
-- `v0.1.0-rc.1` for release candidates.
+Pre-release tags use standard SemVer identifiers such as
+`vX.Y.Z-alpha.1`, `vX.Y.Z-beta.1`, and `vX.Y.Z-rc.1`.
 
 ## Compatibility contract
 
@@ -55,17 +80,19 @@ and security fixes are patch changes.
 
 Every public release must produce:
 
-1. a workflow-generated git tag `vX.Y.Z`;
-2. a GitHub Release with compatibility table and migration notes;
+1. a workflow-generated component tag and GitHub Release (for example,
+   `mcp-vX.Y.Z`);
+2. a compatibility table and migration notes in that release;
 3. an npm package with exactly the same version;
-4. a generated software bill of materials;
+4. a generated software bill of materials for the rich package;
 5. test evidence for build, protocol, clean install, and supported contract
    fixtures;
 6. a changelog entry.
 
-The intended npm package is `@gaia-research/mcp`. It must use npm provenance and
-trusted publishing when implementation begins. Long-lived npm tokens are not
-part of the release design.
+The rich package is `@gaia-research/mcp`; the one-shot alias is `skill-hell`.
+Both use npm provenance and trusted publishing. They are separate artifacts, so
+an alias release must be checked against the engine version it declares as an
+exact dependency.
 
 ## Release automation
 
@@ -75,23 +102,16 @@ The repository uses Release Please with Conventional Commits:
 2. the release workflow runs unit, protocol, stdio, live-contract, build, and
    clean-package gates before it allows a tag;
 3. merging the release pull request updates `package.json`, `src/version.ts`,
-   and this changelog, then creates the workflow-generated tag and GitHub
-   Release;
+   and the changelog, then creates the component tag and GitHub Release;
 4. npm publishes from the GitHub-hosted `release.yml` workflow using OIDC;
-5. the workflow attaches a CycloneDX SBOM to the GitHub Release.
+5. the rich-package workflow attaches a CycloneDX SBOM to the GitHub Release.
 
 The runtime version is kept in `src/version.ts`; Release Please updates it via
 the `x-release-please-version` marker alongside `package.json`.
 
-Trusted publishing requires the package to exist first. The first release uses
-one short-lived `NPM_BOOTSTRAP_TOKEN` from the same GitHub-hosted workflow so it
-still receives provenance. Immediately afterward, the maintainer configures
-the npm trusted publisher, deletes the GitHub secret, and revokes the token.
-All subsequent releases are tokenless.
-
 `COMPATIBILITY.md` is the version-line source of truth. The release workflow
-appends it to the generated GitHub Release notes before npm publication. A
-release with breaking changes must also include explicit migration notes in its
+appends it to generated GitHub Release notes before npm publication. A release
+with breaking changes must also include explicit migration notes in its
 Conventional Commit body so Release Please carries them into the changelog.
 
 ## Release gate
@@ -105,11 +125,7 @@ A tag is created only after:
 - action releases pass fail-closed and approval tests;
 - documentation names any deprecations or operator steps.
 
-For the first publication, the Gaia Research exact-version consumer test runs
-after npm makes `v0.1.0` installable. It gates website “available” claims,
-legacy-document replacement, and v0.1 milestone closure. If that downstream
-test fails, publish a corrective patch and deprecate the broken npm version when
-appropriate; never publish an untested installation command.
-
-The `v0.1.0` implementation is under review and has no published package or
-release yet. The first public release will be `v0.1.0`.
+The release verification must include the explicit package-selector form for
+`gaia-mcp` and a cold `skill-hell@latest` invocation. Never publish an
+installation example that leaves a multi-bin scoped package without an
+executable selection.

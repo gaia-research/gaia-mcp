@@ -1,51 +1,87 @@
 # Gaia MCP
 
-Agent-native discovery, trust, installation, and progression for the
-[Gaia Skill Tree](https://github.com/gaia-research/gaia-skill-tree).
+Agent-native Gaia Registry discovery, evidence inspection, and temporary skill
+summoning for [Gaia Skill Tree](https://github.com/gaia-research/gaia-skill-tree).
 
-> **Status:** the `v0.1.0` Trusted Discovery implementation is under review.
-> The npm package is not published yet; use the local development instructions
-> below until the first release passes its publication gate.
+> **Status:** [`@gaia-research/mcp@0.4.0`](https://github.com/gaia-research/gaia-mcp/releases/tag/mcp-v0.4.0)
+> is published. It is a working prototype: its current package interface is
+> usable, while later Heaven/Summon profile work remains separate.
 
-Gaia MCP lets an AI agent answer a practical question inside the user's current
-conversation:
+Gaia MCP consumes public Registry data; it does not own or mutate the Registry.
 
-> Which evidence-backed skill fits this task, why should I trust it, and can you
-> add it to this workspace safely?
+## Current package surface
 
-It is a standalone Gaia Research instrument. It consumes canonical public data
-and validated local actions from Gaia Skill Tree; it does not own or mutate the
-Registry directly.
+The published **rich Registry/Bond package surface** has four tools:
 
-## Repository roles
-
-| Repository | Responsibility |
+| Tool | Current purpose |
 |---|---|
-| [`gaia-skill-tree`](https://github.com/gaia-research/gaia-skill-tree) | Canonical Registry, schemas, public data, Trust Magnitude, and validated CLI actions. |
-| [`gaia-research`](https://github.com/gaia-research/gaia-research) | Human-facing portal, research, reports, and the future Gaia MCP product page. |
-| **`gaia-mcp`** | Agent-facing discovery, comparison, recommendation, installation coordination, and progression guidance. |
-| [`skill-fuse`](https://github.com/gaia-research/skill-fuse) | Creative authoring: combines installed skills into a new `SKILL.md`. |
-| [`gaia-operator`](https://github.com/gaia-research/gaia-operator) | Guarded browser and platform interaction runtime. |
+| `gaia_search` | Find generic and Named Skills by task and constraints. |
+| `gaia_inspect` | Return an evidence-backed skill dossier. |
+| `summon` | Materialize matching Named Skills into an ephemeral Skill Hell session. |
+| `gaia_status` | Report version, Registry freshness, compatibility, counts, and available tools. |
 
-## v0.1 tool surface
+`summon` is the current tool name; `gaia_summon` is not a current package tool.
+It materializes skills in a temporary session and may maintain a bounded,
+temporary cross-session payload cache. It never changes the Registry, current
+repository, or permanent harness/project configuration.
 
-- `gaia_search` — find generic and Named Skills by task and constraints.
-- `gaia_inspect` — return an evidence-backed skill dossier.
-- `gaia_status` — report server compatibility, Registry freshness, counts, and
-  source URLs.
-- `summon` — materialize matching skills into an ephemeral Skill Hell session,
-  with printable cards, inspect links, and explicit ranking provenance.
+### Package surface versus the thin Heaven/Summon profile
 
-The first three tools are implemented in read-only Registry mode for `v0.1.0`.
-`gaia_analyze_project` and `gaia_plan_path` arrive with Bonded mode in `v0.2.0`.
+The package's four tools are **not** an implementation or measurement of D4's
+thin, two-tool Heaven/Summon profile (`search_skills`, `summon`). The latter is
+a profile and schema-dose constraint for Skill Heaven work. It does not rename,
+remove, or deprecate any of the published package tools above.
 
-Installation, updates, and Intake submission arrive only after the read-only
-surface is trustworthy. Every action will route through the canonical Gaia CLI
-and require explicit approval where it changes the workspace or external state.
-
-## Run the development server
+## Install and run
 
 Requires Node.js 22.14 or newer.
+
+### Add the MCP server to Claude Code
+
+Use an explicit package selector and binary. `@gaia-research/mcp` registers two
+binaries, so a package name alone cannot select the MCP server:
+
+```sh
+claude mcp add gaia -- npx --yes --package=@gaia-research/mcp@latest gaia-mcp
+```
+
+For another MCP client, use this command and argument shape:
+
+```json
+{
+  "command": "npx",
+  "args": ["--yes", "--package=@gaia-research/mcp@latest", "gaia-mcp"]
+}
+```
+
+### Summon from a clean shell
+
+The npx-friendly alias is the shortest one-shot command:
+
+```sh
+npx --yes skill-hell@latest summon "code review" --card
+```
+
+You can also select the `skill-hell` binary directly from the rich package:
+
+```sh
+npx --yes --package=@gaia-research/mcp@latest skill-hell summon "code review" --card
+```
+
+For a persistent shell installation, install the rich package and use either of
+its two binaries:
+
+```sh
+npm install --global @gaia-research/mcp@latest
+gaia-mcp
+skill-hell summon "code review" --card
+```
+
+`skill-hell@latest` is an alias package with its own forwarding binary. The
+scoped package deliberately exposes both `gaia-mcp` and `skill-hell`; always
+select the intended binary with `--package` when running it through npx.
+
+## Run from a checkout
 
 ```sh
 npm ci
@@ -54,81 +90,60 @@ node dist/bin/gaia-mcp.js
 ```
 
 The server speaks MCP over stdio, so it normally appears idle when run directly.
-Connect it from an MCP client using the absolute path to
-`dist/bin/gaia-mcp.js`.
+Connect an MCP client to the absolute path of `dist/bin/gaia-mcp.js`.
 
-After `v0.1.0` is published and its clean-install gate passes, the canonical
-Claude Code installation will be version-pinned:
-
-```sh
-claude mcp add gaia -- npx -y @gaia-research/mcp@0.1.0
-```
-
-Do not use that npm command until the package appears in the
-[Gaia MCP releases](https://github.com/gaia-research/gaia-mcp/releases).
-
-The public projection endpoints can be overridden for testing with
+For isolated source testing, override the public projection endpoints with
 `TREE_URL` and `TREE_NAMED_URL`.
 
-## Ambient Skill Hell
+## Skill Hell sessions
 
-The standalone CLI can summon one or several relevant skills without changing the
-current repository or user configuration:
+`summon` materializes the whole skill directory — `SKILL.md` plus referenced
+files, templates, scripts, and fixtures — under an ephemeral session root. It
+returns cards, inspect links, timing, cache state, and its ranking disclosure.
 
 ```sh
-skill-hell summon "code review" --card
 skill-hell summon "code review" --count 3
 skill-hell sessions
 # Re-attach in a new shell/session:
 eval "$(skill-hell attach skill-hell-AbCd12)"
 ```
 
-`--count` is bounded to 1–5. Every JSON result includes the result card, human-openable
-`inspectUrl`, install timing paired with `cold`/`warm`, and a ranking disclosure. Named
-skills may publish an open `trust` object whose keys display automatically. Numeric
-values—or descriptors such as `{ "value": "aurora", "score": 9 }`—can rank candidates;
-when no comparable trust signal exists, summon explicitly reports relevance-only
-ranking. Gaia's existing `level`, `trustMagnitude`, and `overallTrustGrade` remain
-back-compatible aliases and are adapted into the open bag.
+`--count` is bounded to 1–5. Named Skills may publish an open `trust` object;
+when there is no comparable signal, the result explicitly reports
+relevance-only ordering. This per-invocation ordering is not Hell/Heaven
+scoring, routing eligibility, or a content-hash admission policy. Those
+features are not shipped.
 
-Warm roots remain under `os.tmpdir()` for the configured TTL. `skill-hell sessions`
-lists them and `skill-hell attach` emits the `SKILL_HELL_SESSION` export needed to reuse
-already-materialized payloads. Skill Hell never writes into the current repository,
-`~/.claude`, or permanent skill configuration.
+Warm roots remain under `os.tmpdir()` for the configured TTL. `skill-hell`
+never writes into the current repository, `~/.claude`, or permanent skill
+configuration.
 
 ## Verify
 
 ```sh
-npm run check       # typecheck, unit/protocol tests, build
-npm run test:live   # current gaiaskilltree.com data contract
+npm run check       # format check, typecheck, unit/protocol/package tests
+npm run test:live   # current Gaia public-data contract
 npm pack --dry-run  # publishable artifact contents
 ```
 
-## Design documents
+## Reference documents
 
-- [Architecture](ARCHITECTURE.md)
-- [Delivery roadmap](ROADMAP.md)
-- [Versioning and releases](VERSIONING.md)
 - [Compatibility](COMPATIBILITY.md)
+- [Versioning and releases](VERSIONING.md)
+- [Skill Hell prototype details](docs/SKILL-HELL.md)
 - [Changelog](CHANGELOG.md)
-
-## Cross-repository tracking
-
-- [`gaia-mcp` v0.1 implementation and release](https://github.com/gaia-research/gaia-mcp/issues/1)
-- [Founder npm bootstrap and trusted-publisher handoff](https://github.com/gaia-research/gaia-mcp/issues/2)
-- [Gaia Skill Tree extraction and Roadmap v5 RFC](https://github.com/gaia-research/gaia-skill-tree/issues/1191)
-- [Gaia Research website integration and consumer test](https://github.com/gaia-research/gaia-research/issues/53)
+- [Gaia MCP releases](https://github.com/gaia-research/gaia-mcp/releases)
 
 ## Non-goals
 
 Gaia MCP is not:
 
-- a conversational wrapper around every `gaia` command;
 - a second Registry implementation;
-- the engine that creatively fuses `SKILL.md` files;
 - a direct Registry or Skill Tree mutation path;
-- a background update daemon;
-- part of the Gaia Research website runtime.
+- a permanent skill installer or background update daemon;
+- an implemented Hell/Heaven scoring, routing-eligibility, or content-hash
+  admission system;
+- the thin Heaven/Summon profile merely because it has a `summon` tool.
 
 ## License
 

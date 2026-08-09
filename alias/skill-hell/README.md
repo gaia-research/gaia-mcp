@@ -3,26 +3,15 @@
 > **WORKING PROTOTYPE — actively tested for public use, not a finished product.**
 > Interfaces and command surfaces may change.
 
-Summon a skill into your session instead of installing it.
+Summon a skill into an ephemeral session instead of permanently installing it.
 
 ```sh
-npx skill-hell summon "code review" --card
-```
-
-```
-[Summoned] QA
-  ID: garrytan/qa
-  Trust: Level 3★ · Trust Magnitude 63.73 · Overall Trust Grade B
-  Ranking: trust then relevance — level, trustMagnitude
-  Install: 3.414s · cold/remote · 4 files
-  Path: /tmp/skill-hell-kbAV31/skills/garrytan__qa
-  Inspect: https://github.com/garrytan/gstack/blob/main/qa/SKILL.md
+npx --yes skill-hell@latest summon "code review" --card
 ```
 
 The whole skill directory is materialized — `SKILL.md` plus its `references/`,
-`templates/`, and scripts — into a **session-scoped** root under your OS temp dir.
-Nothing is written to your repository and nothing to `~/.claude`. The session root
-stays warm, so a later session re-attaches instead of re-cloning.
+`templates/`, and scripts — into a session-scoped root under your OS temp
+directory. Nothing is written to your repository or `~/.claude`.
 
 ## Commands
 
@@ -36,45 +25,46 @@ skill-hell close [--json]
 skill-hell gc [--dry-run] [--json]
 ```
 
-Point it at a different tree with `TREE_URL`. Trust fields are whatever that tree
-publishes — a tree with no star rating or trust score ranks by relevance and says so,
-rather than silently returning arbitrary order.
+Point it at a different tree with `TREE_URL` and `TREE_NAMED_URL`. Trust fields
+are whatever that tree publishes; a tree with no comparable trust signal is
+ranked by relevance and says so.
 
-## What this package is
+## Alias versus the rich package
 
-A **name alias**, and nothing else — one dependency and this README. It ships no code.
+[`skill-hell@0.4.0`](https://www.npmjs.com/package/skill-hell) is the
+npx-friendly alias. Its own `skill-hell` binary forwards to the engine in
+[`@gaia-research/mcp`](https://www.npmjs.com/package/@gaia-research/mcp).
 
-The engine lives in [`@gaia-research/mcp`](https://www.npmjs.com/package/@gaia-research/mcp),
-which ships two binaries — `gaia-mcp` and `skill-hell`. npx runs the binary matching the
-*package* name, and neither matches, so:
+The rich package currently registers **two** binaries:
 
-```
-$ npx @gaia-research/mcp
-npm error could not determine executable to run
-```
+| Package | Binaries |
+|---|---|
+| `@gaia-research/mcp@latest` | `gaia-mcp`, `skill-hell` |
+| `skill-hell@latest` | `skill-hell` forwarding alias |
 
-The working-but-non-obvious form is `npx -y -p @gaia-research/mcp skill-hell`. This package
-exists so the obvious command is also the correct one.
-
-There is deliberately **no wrapper binary here**. Installing this package puts the engine's
-own `skill-hell` on `PATH` via the dependency, so `npx skill-hell` reaches the real binary
-directly — no extra process, no argv or signal forwarding to get wrong. An earlier draft of
-this package shipped a wrapper; testing showed npm links the dependency's bin regardless,
-which made the wrapper dead code. It was removed rather than published unused.
-
-If you are installing rather than one-shotting, prefer the engine directly:
+A multi-bin scoped package needs an explicit executable selection under npx.
+Use the alias above, or select `skill-hell` from the rich package directly:
 
 ```sh
-npm install -g @gaia-research/mcp
+npx --yes --package=@gaia-research/mcp@latest skill-hell summon "code review" --card
 ```
+
+For a persistent installation, install the rich package and use its binaries
+from `PATH`:
+
+```sh
+npm install --global @gaia-research/mcp@latest
+skill-hell summon "code review" --card
+gaia-mcp
+```
+
+The current rich package surface has four tools: `gaia_search`, `gaia_inspect`,
+`summon`, and `gaia_status`. `summon` is the current name, not `gaia_summon`.
+The package remains a prototype: its ranking display is not Hell/Heaven scoring,
+routing eligibility, or content-hash admission or verification.
 
 ## The other half
 
-`skill-hell` is the additive half of the Skill Heaven entropy ladder. The subtractive
-half — launchers that boot your agent with *less* rather than more — is at
-[gaia-research/skill-heaven](https://github.com/gaia-research/skill-heaven), installable
-in one command:
-
-```sh
-curl -fsSL https://gaia-research.github.io/skill-heaven/install.sh | sh
-```
+`skill-hell` is the additive half of the Skill Heaven ladder. The subtractive
+launchers live at [gaia-research/skill-heaven](https://github.com/gaia-research/skill-heaven).
+Their documented per-harness behavior is separate from this CLI alias.
