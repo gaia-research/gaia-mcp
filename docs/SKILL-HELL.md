@@ -27,9 +27,11 @@ profile/dose constraint, not a description of this four-tool package.
 
 ## What this is
 
-Skill Hell is the high-entropy end of the Skill Heaven ladder. Where Skill Heaven
-*subtracts* context to reach a clean floor, Skill Hell *adds* it by summoning skills
-from the live Gaia registry into the running session on demand.
+Skill Hell is the explore-direction summon on the Skill Heaven Hell/Heaven axis.
+Where the **Skill Zero** launcher *subtracts* context to reach a clean floor, and
+the converge-direction Heaven summon curates toward a focused set, Skill Hell
+*adds* context by summoning skills from the live Gaia registry into the running
+session on demand.
 
 ## Product shape
 
