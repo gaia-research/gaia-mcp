@@ -8,7 +8,7 @@
     "claude",
     "mcp",
     "skill-hell",
-    "skill-heaven"
+    "gaia-skill-heaven"
   ],
   "license": "MIT",
   "repository": {
@@ -16,7 +16,7 @@
     "url": "git+https://github.com/gaia-research/gaia-mcp.git",
     "directory": "alias/skill-hell"
   },
-  "homepage": "https://gaia-research.github.io/skill-heaven/",
+  "homepage": "https://gaia-research.github.io/gaia-skill-heaven/",
   "bugs": "https://github.com/gaia-research/gaia-mcp/issues",
   "bin": {
     "skill-hell": "bin/skill-hell.mjs"

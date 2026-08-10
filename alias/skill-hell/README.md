@@ -63,8 +63,11 @@ The current rich package surface has four tools: `gaia_search`, `gaia_inspect`,
 The package remains a prototype: its ranking display is not Hell/Heaven scoring,
 routing eligibility, or content-hash admission or verification.
 
-## The other half
+## The summon axis
 
-`skill-hell` is the additive half of the Skill Heaven ladder. The subtractive
-launchers live at [gaia-research/skill-heaven](https://github.com/gaia-research/skill-heaven).
-Their documented per-harness behavior is separate from this CLI alias.
+`skill-hell` is the explore-direction summon on the Skill Heaven Hell/Heaven
+axis: it *adds* context by summoning skills into your session on demand. The
+converge direction is the curated Heaven summon. The subtractive **Skill Zero**
+launcher — the tool that strips context to a clean floor — lives at
+[gaia-research/gaia-skill-heaven](https://github.com/gaia-research/gaia-skill-heaven).
+Its documented per-harness behavior is separate from this CLI alias.
