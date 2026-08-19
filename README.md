@@ -1,3 +1,22 @@
+> [!WARNING]
+> **DEPRECATED.** This package is superseded by the **Skill Heaven Claude Code
+> plugin**, which bundles the summon MCP server directly — nothing to install
+> separately. See
+> [`gaia-research/gaia-skill-heaven`](https://github.com/gaia-research/gaia-skill-heaven).
+>
+> The engine that used to live in this repo now lives at `packages/skill-summon`
+> in that monorepo, and ships esbuild-bundled straight into the plugin
+> (`plugins/skill-heaven/mcp/skill-summon.mjs`) — no npx, no sibling checkout,
+> no external binary, no runtime dependencies.
+>
+> **The published packages stay installable.** `@gaia-research/mcp` and
+> `skill-hell` are not being unpublished — existing `install.sh` copies and
+> version-pinned installs keep working. Deprecated means *don't start new work
+> here*, not *it broke*. New work should target the plugin instead.
+>
+> See [`DEPRECATION.md`](DEPRECATION.md) for the full closeout notes, including
+> the pending `npm deprecate` steps.
+
 # Gaia MCP
 
 Agent-native Gaia Registry discovery, evidence inspection, and temporary skill
