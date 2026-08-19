@@ -1,5 +1,13 @@
 # skill-hell
 
+> [!WARNING]
+> **DEPRECATED.** Superseded by the **Skill Heaven Claude Code plugin**, which
+> bundles the summon MCP server directly — nothing to install separately. See
+> [`gaia-research/gaia-skill-heaven`](https://github.com/gaia-research/gaia-skill-heaven).
+> This package is not being unpublished; existing installs keep working, but
+> new work should target the plugin. Full notes:
+> [`DEPRECATION.md`](../../DEPRECATION.md) in the parent repo.
+
 > **WORKING PROTOTYPE — actively tested for public use, not a finished product.**
 > Interfaces and command surfaces may change.
 

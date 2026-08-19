@@ -1,7 +1,7 @@
 {
   "name": "@gaia-research/mcp",
   "version": "0.4.0",
-  "description": "Agent-native discovery and trust interface for the Gaia Skill Tree",
+  "description": "DEPRECATED — superseded by the Skill Heaven Claude Code plugin (gaia-research/gaia-skill-heaven). Agent-native discovery and trust interface for the Gaia Skill Tree",
   "type": "module",
   "bin": {
     "gaia-mcp": "dist/bin/gaia-mcp.js",

@@ -1,7 +1,7 @@
 {
   "name": "skill-hell",
   "version": "0.4.0",
-  "description": "Summon a skill into your session instead of installing it. The npx-friendly name for @gaia-research/mcp's skill-hell binary. WORKING PROTOTYPE, actively tested for public use.",
+  "description": "DEPRECATED — superseded by the Skill Heaven Claude Code plugin (gaia-research/gaia-skill-heaven). Summon a skill into your session instead of installing it. The npx-friendly name for @gaia-research/mcp's skill-hell binary.",
   "keywords": [
     "skills",
     "agent",
