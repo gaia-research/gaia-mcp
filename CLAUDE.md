@@ -25,7 +25,8 @@ minimal local note immediately or as soon as practical. The exclusion list for
 public reports applies to capture as well as output: do not record raw prompts,
 transcripts, session logs, credentials, access tokens, raw tokenized content,
 personal data, private code, private URLs or paths, customer identifiers, or
-confidential details unnecessarily. Redact or synthesize before any external
+confidential details. Never record credentials or access tokens in feedback
+notes or drafts. Redact or synthesize before any external
 search query or delegate handoff. Store minimal drafts outside repository
 worktrees in caller-controlled local scratch. If uncertain, keep a constrained
 local note and ask the owner; do not export it. At task end, review pending notes;
@@ -50,12 +51,12 @@ issues into Skill Heaven.
 If the pending note is actionable and in that Skill Heaven scope, use the
 smallest light-agent capability that the current harness safely supports to
 deduplicate/search and prepare one sanitized, approval-ready issue in
-`gaia-research/gaia-skill-heaven`; only file it when the owner has authorized
-this narrow safe-feedback action and no repository-required approval gate blocks
-it. The issue writer **MUST NOT** launch another issue writer or restart the
+`gaia-research/gaia-skill-heaven`; this policy grants standing owner authorization
+for that narrow safe-feedback action in this repository. File when no
+repository-required approval gate blocks it. The issue writer **MUST NOT** launch another issue writer or restart the
 feedback loop. Deduplicate before publication using the already-sanitized
-packet; process only one new actionable case, aggregate one underlying problem,
-and link an existing issue when appropriate. Dispatch must respect active worker
+packet; process only new actionable cases, with one issue per underlying problem;
+add new facts to an existing issue when appropriate. Dispatch must respect active worker
 limits, explicit no-delegation instructions, and repository-specific approval
 gates. Public reports must use a synthetic minimal reproduction and exclude raw
 prompts, transcripts, session logs, credentials, access tokens, raw tokenized
